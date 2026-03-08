@@ -1,0 +1,186 @@
+import React, { useRef, useEffect } from 'react';
+
+interface PseudocodeEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  onCursorPositionChange: (position: number) => void;
+}
+
+export const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
+  value,
+  onChange,
+  onCursorPositionChange,
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  const getIndentLevel = (line: string): number => {
+    let spaces = 0;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === ' ') spaces++;
+      else break;
+    }
+    return Math.floor(spaces / 4);
+  };
+
+  const calculateIndentForNextLine = (currentLine: string, allLines: string[], lineIndex: number): number => {
+    const trimmed = currentLine.trim();
+    let currentIndent = getIndentLevel(currentLine);
+
+    if (trimmed === 'BEGIN' || trimmed.startsWith('IF ') || trimmed === 'ELSE' ||
+        trimmed.startsWith('ELSE IF ') || trimmed.startsWith('FOR ') ||
+        trimmed.startsWith('WHILE ') || trimmed.startsWith('DEFINE ')) {
+      return currentIndent + 1;
+    }
+
+    if (trimmed === 'END' || trimmed === 'END IF' || trimmed === 'END FOR' || trimmed === 'END WHILE') {
+      return Math.max(0, currentIndent);
+    }
+
+    return currentIndent;
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+
+      const cursorPos = textarea.selectionStart;
+      const textBefore = value.substring(0, cursorPos);
+      const textAfter = value.substring(cursorPos);
+
+      const lines = textBefore.split('\n');
+      const currentLine = lines[lines.length - 1];
+
+      const allLines = value.split('\n');
+      const currentLineIndex = lines.length - 1;
+
+      let indent = calculateIndentForNextLine(currentLine, allLines, currentLineIndex);
+      const indentString = '    '.repeat(indent);
+
+      const newValue = textBefore + '\n' + indentString + textAfter;
+      onChange(newValue);
+
+      setTimeout(() => {
+        const newCursorPos = cursorPos + 1 + indentString.length;
+        textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+        onCursorPositionChange(newCursorPos);
+      }, 0);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+
+      const cursorPos = textarea.selectionStart;
+      const textBefore = value.substring(0, cursorPos);
+      const textAfter = value.substring(cursorPos);
+
+      const newValue = textBefore + '    ' + textAfter;
+      onChange(newValue);
+
+      setTimeout(() => {
+        const newCursorPos = cursorPos + 4;
+        textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+        onCursorPositionChange(newCursorPos);
+      }, 0);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(e.target.value);
+  };
+
+  const handleClick = () => {
+    if (textareaRef.current) {
+      onCursorPositionChange(textareaRef.current.selectionStart);
+    }
+  };
+
+  const handleKeyUp = () => {
+    if (textareaRef.current) {
+      onCursorPositionChange(textareaRef.current.selectionStart);
+    }
+  };
+
+  const lines = value.split('\n');
+  const lineCount = lines.length;
+
+  const highlightedContent = lines.map((line, index) => {
+    const reservedWords = [
+      'BEGIN', 'END', 'IF', 'THEN', 'ELSE', 'END IF', 'ELSE IF',
+      'FOR', 'FROM', 'TO', 'END FOR', 'WHILE', 'END WHILE',
+      'DEFINE', 'RETURN', 'INPUT', 'OUTPUT',
+      'AND', 'OR', 'NOT', 'MOD'
+    ];
+
+    let highlightedLine = line.replace(/ /g, '&nbsp;');
+
+    reservedWords.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      highlightedLine = highlightedLine.replace(
+        regex,
+        `<span class="text-blue-600 dark:text-blue-400 font-semibold">${word}</span>`
+      );
+    });
+
+    const operators = ['←', '≠', '≤', '≥', '×'];
+    operators.forEach(op => {
+      highlightedLine = highlightedLine.replace(
+        new RegExp(op.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+        `<span class="text-purple-600 dark:text-purple-400">${op}</span>`
+      );
+    });
+
+    return (
+      <div key={index} className="table-row">
+        <div className="table-cell pr-4 text-right text-gray-500 dark:text-gray-500 select-none border-r border-gray-300 dark:border-gray-600">
+          {index + 1}
+        </div>
+        <div
+          className="table-cell pl-4"
+          dangerouslySetInnerHTML={{ __html: highlightedLine || '&nbsp;' }}
+        />
+      </div>
+    );
+  });
+
+  return (
+    <div className="relative h-full font-mono text-sm">
+      <div className="absolute inset-0 overflow-auto p-4 bg-white dark:bg-gray-800 pointer-events-none z-10">
+        <div className="table text-gray-800 dark:text-gray-200">
+          {highlightedContent}
+        </div>
+      </div>
+
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={handleChange}
+        onClick={handleClick}
+        onKeyUp={handleKeyUp}
+        onKeyDown={handleKeyDown}
+        className="absolute inset-0 w-full h-full p-4 pl-16 font-mono text-sm bg-transparent resize-none outline-none z-20 caret-white"
+        style={{
+          lineHeight: '1.5',
+          color: 'transparent',
+          caretColor: 'white',
+        }}
+        spellCheck={false}
+      />
+
+      <style>{`
+        textarea::selection {
+          background-color: rgba(59, 130, 246, 0.5);
+        }
+        .dark textarea::selection {
+          background-color: rgba(96, 165, 250, 0.5);
+        }
+      `}</style>
+    </div>
+  );
+};
