@@ -7,19 +7,28 @@ interface LoginModalProps {
   onLoginSuccess: (openAiKey: string | null, username: string) => void;
 }
 
+const REMEMBER_KEY = 'pseudocode_remembered_user';
+
 export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess }) => {
   const [usernames, setUsernames] = useState<string[]>([]);
   const [selectedUsername, setSelectedUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const remembered = localStorage.getItem(REMEMBER_KEY);
     fetchUsernames()
       .then((names) => {
         setUsernames(names);
-        if (names.length > 0) setSelectedUsername(names[0]);
+        if (remembered && names.includes(remembered)) {
+          setSelectedUsername(remembered);
+          setRememberMe(true);
+        } else if (names.length > 0) {
+          setSelectedUsername(names[0]);
+        }
       })
       .catch(() => setError('Failed to load users.'))
       .finally(() => setLoadingUsers(false));
@@ -35,6 +44,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess 
         setError('Invalid username or password.');
         setSubmitting(false);
         return;
+      }
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_KEY, selectedUsername);
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
       }
       const key = await fetchOpenAIKey();
       onLoginSuccess(key, selectedUsername);
@@ -97,6 +111,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess 
               placeholder="Enter your password"
               required
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="rememberMe"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            <label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
+              Remember me
+            </label>
           </div>
 
           {error && (

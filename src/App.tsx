@@ -58,6 +58,7 @@ function App() {
     setLoggedInUser('');
     setOpenAiKey(null);
     setApiKeyStatus('unchecked');
+    localStorage.removeItem('pseudocode_remembered_user');
   };
 
   const getIndentLevel = (line: string): number => {
