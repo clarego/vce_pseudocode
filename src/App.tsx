@@ -305,7 +305,7 @@ function App() {
 
       {mode === 'study' ? (
         <div className="flex-1 overflow-hidden">
-          <StudyMode />
+          <StudyMode openAiKey={openAiKey} />
         </div>
       ) : (
         <>

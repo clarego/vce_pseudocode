@@ -1,6 +1,11 @@
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
-const callOpenAI = async (apiKey: string, systemPrompt: string, userContent: string): Promise<string> => {
+const callOpenAI = async (
+  apiKey: string,
+  systemPrompt: string,
+  userContent: string,
+  temperature = 0.2
+): Promise<string> => {
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
     headers: {
@@ -13,7 +18,7 @@ const callOpenAI = async (apiKey: string, systemPrompt: string, userContent: str
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
       ],
-      temperature: 0.2,
+      temperature,
     }),
   });
 
@@ -78,3 +83,87 @@ Rules:
   return callOpenAI(apiKey, systemPrompt, pseudocode);
 };
 
+export const aiCorrectAndConvert = async (
+  apiKey: string,
+  pseudocode: string,
+  language: 'python' | 'javascript'
+): Promise<{ corrected: string; converted: string }> => {
+  const corrected = await aiCorrectPseudocode(apiKey, pseudocode);
+  const converted = await aiPseudocodeToCode(apiKey, corrected, language);
+  return { corrected, converted };
+};
+
+export interface TeacherFeedback {
+  hasMistakes: boolean;
+  feedback: string;
+}
+
+export const aiTeacherFeedback = async (
+  apiKey: string,
+  pseudocode: string,
+  exerciseDescription: string,
+  solution: string
+): Promise<TeacherFeedback> => {
+  const systemPrompt = `You are a supportive VCE Software Development teacher in Victoria, Australia.
+A student is working on a pseudocode exercise. Review their attempt and provide teacher-style feedback.
+
+CRITICAL RULES:
+- NEVER give the answer or correct code directly.
+- If their pseudocode has mistakes, point out WHAT TYPE of error exists and WHERE (line or concept) without revealing the fix.
+- Ask guiding questions to help them think through the problem.
+- Be encouraging and specific.
+- If the pseudocode is correct or nearly correct, say so with praise and note any minor improvements.
+- Keep feedback to 2-4 sentences maximum.
+- Respond in JSON: {"hasMistakes": true/false, "feedback": "your feedback here"}`;
+
+  const userContent = `Exercise: ${exerciseDescription}
+
+Student's pseudocode:
+${pseudocode}
+
+Expected solution (for reference only, do NOT reveal):
+${solution}`;
+
+  const raw = await callOpenAI(apiKey, systemPrompt, userContent, 0.4);
+  try {
+    const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return { hasMistakes: false, feedback: raw };
+  }
+};
+
+export const aiAutocomplete = async (
+  apiKey: string,
+  currentCode: string,
+  cursorPosition: number
+): Promise<string[]> => {
+  const before = currentCode.substring(0, cursorPosition);
+  const lines = before.split('\n');
+  const currentLine = lines[lines.length - 1].trim();
+
+  if (currentLine.length < 2) return [];
+
+  const systemPrompt = `You are a VCE pseudocode assistant. Based on the current line being typed, suggest 1-3 completions.
+Rules:
+- Only suggest valid VCE pseudocode continuations for the CURRENT LINE.
+- Use proper keywords: BEGIN, END, IF...THEN, ELSE, END IF, FOR...FROM...TO, END FOR, WHILE...END WHILE, INPUT, OUTPUT, DEFINE, RETURN, ←, ≠, ≤, ≥, ×, MOD, AND, OR, NOT.
+- Each suggestion should complete the current line, not add new lines.
+- Return ONLY a JSON array of strings, e.g. ["suggestion1", "suggestion2"]
+- Max 3 suggestions. If current line looks complete, return [].`;
+
+  const userContent = `Context (last 5 lines):
+${lines.slice(-5).join('\n')}
+
+Current partial line: "${currentLine}"`;
+
+  try {
+    const raw = await callOpenAI(apiKey, systemPrompt, userContent, 0.3);
+    const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
+    const suggestions = JSON.parse(cleaned);
+    if (Array.isArray(suggestions)) return suggestions.slice(0, 3);
+    return [];
+  } catch {
+    return [];
+  }
+};
