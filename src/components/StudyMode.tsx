@@ -495,15 +495,42 @@ export const StudyMode: React.FC = () => {
                       {currentExercise.description}
                     </p>
 
-                    <textarea
-                      ref={textareaRef}
-                      value={exerciseCode}
-                      onChange={(e) => handleExerciseChange(e.target.value)}
-                      onKeyDown={handleExerciseKeyDown}
-                      className="w-full h-64 p-3 font-mono text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
-                      placeholder="Write your pseudocode here..."
-                      spellCheck={false}
-                    />
+                    <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+                      <div className="flex flex-wrap gap-1 p-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+                        {['←', '≠', '≤', '≥', '×', '+', '-', '/', 'MOD', 'AND', 'OR', 'NOT'].map((char) => (
+                          <button
+                            key={char}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              const textarea = textareaRef.current;
+                              if (!textarea) return;
+                              const start = textarea.selectionStart;
+                              const end = textarea.selectionEnd;
+                              const insert = char + ' ';
+                              const newValue = exerciseCode.substring(0, start) + insert + exerciseCode.substring(end);
+                              handleExerciseChange(newValue);
+                              setTimeout(() => {
+                                textarea.focus();
+                                textarea.selectionStart = textarea.selectionEnd = start + insert.length;
+                              }, 0);
+                            }}
+                            className="px-2 py-0.5 text-sm font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-blue-50 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
+                          >
+                            {char}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        ref={textareaRef}
+                        value={exerciseCode}
+                        onChange={(e) => handleExerciseChange(e.target.value)}
+                        onKeyDown={handleExerciseKeyDown}
+                        className="w-full h-64 p-3 font-mono text-sm bg-white dark:bg-gray-900 border-0 focus:ring-0 focus:outline-none text-gray-900 dark:text-gray-100"
+                        placeholder="Write your pseudocode here..."
+                        spellCheck={false}
+                      />
+                    </div>
 
                     <div className="flex flex-wrap gap-2 mt-4">
                       <button
