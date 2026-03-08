@@ -275,7 +275,7 @@ function App() {
                   src="/cla_sol.png"
                   alt="Clarence's Solutions"
                   className="h-8 w-auto object-contain"
-                  style={{ filter: theme === 'hacker' ? 'brightness(0) saturate(100%) invert(74%) sepia(41%) saturate(500%) hue-rotate(82deg) brightness(100%) contrast(90%)' : 'brightness(0) invert(1)' }}
+                  style={{ filter: theme === 'hacker' ? 'brightness(0) saturate(100%) invert(74%) sepia(41%) saturate(500%) hue-rotate(82deg) brightness(100%) contrast(90%)' : 'none' }}
                 />
               </div>
             </div>
