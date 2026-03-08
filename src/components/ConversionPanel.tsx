@@ -37,7 +37,7 @@ export const ConversionPanel: React.FC<ConversionPanelProps> = ({
           setError(result.error);
         }
       } else {
-        setOutput(['Running Python code...']);
+        setOutput(['Loading Python environment... (first run may take a moment)']);
         const result = await runPython(content);
         setOutput(result.output);
         if (result.error) {
