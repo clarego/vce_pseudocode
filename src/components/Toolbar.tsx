@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Wand2,
   Loader2,
+  LayoutDashboard,
 } from 'lucide-react';
 
 interface ToolbarProps {
@@ -28,8 +29,10 @@ interface ToolbarProps {
   onShowHelp: () => void;
   onImportCode: (code: string, language: 'python' | 'javascript') => void;
   onCorrectPseudocode: () => void;
+  onGenerateDesignTools: () => void;
   hasAI: boolean;
   aiLoading: boolean;
+  designToolsActive: boolean;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -46,8 +49,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onShowHelp,
   onImportCode,
   onCorrectPseudocode,
+  onGenerateDesignTools,
   hasAI,
   aiLoading,
+  designToolsActive,
 }) => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
@@ -232,6 +237,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               AI Correct
             </button>
           )}
+
+          <button
+            onClick={onGenerateDesignTools}
+            disabled={aiLoading && !designToolsActive}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+              designToolsActive
+                ? 'bg-sky-700 hover:bg-sky-800 text-white ring-2 ring-sky-400'
+                : 'bg-sky-600 hover:bg-sky-700 text-white'
+            }`}
+          >
+            {aiLoading && !designToolsActive ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <LayoutDashboard className="w-4 h-4" />
+            )}
+            Design Tools
+            {hasAI && <span className="text-xs bg-sky-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
+          </button>
 
           <button
             onClick={onClear}

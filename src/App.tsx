@@ -3,13 +3,15 @@ import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2 } from 'lucide-r
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
 import { ConversionPanel } from './components/ConversionPanel';
+import { DesignTools } from './components/DesignTools';
 import { Toolbar } from './components/Toolbar';
 import { HelpModal } from './components/HelpModal';
 import { StudyMode } from './components/StudyMode';
 import { LoginModal } from './components/LoginModal';
 import { templates } from './data/templates';
 import { pseudocodeToCode, codeToPseudocode } from './utils/converters';
-import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode } from './utils/aiService';
+import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode, aiGenerateDesignTools } from './utils/aiService';
+import type { DesignTools as DesignToolsData } from './utils/aiService';
 import { exportToPDF, downloadFile } from './utils/pdfExport';
 
 type ApiKeyStatus = 'unchecked' | 'valid' | 'invalid';
@@ -31,6 +33,10 @@ function App() {
   const [openAiKey, setOpenAiKey] = useState<string | null>(null);
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('unchecked');
   const [aiLoading, setAiLoading] = useState(false);
+
+  const [showDesignTools, setShowDesignTools] = useState(false);
+  const [designToolsData, setDesignToolsData] = useState<DesignToolsData | null>(null);
+  const [isDesignToolsLoading, setIsDesignToolsLoading] = useState(false);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -140,6 +146,7 @@ function App() {
     }
     setConvertedLanguage('python');
     setShowConversion(true);
+    setShowDesignTools(false);
   };
 
   const handleConvertToJavaScript = async () => {
@@ -158,6 +165,7 @@ function App() {
     }
     setConvertedLanguage('javascript');
     setShowConversion(true);
+    setShowDesignTools(false);
   };
 
   const handleDownloadPython = () => {
@@ -211,6 +219,29 @@ function App() {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const runDesignToolsGeneration = async () => {
+    if (!openAiKey || apiKeyStatus !== 'valid' || !pseudocode.trim()) return;
+    setIsDesignToolsLoading(true);
+    try {
+      const result = await aiGenerateDesignTools(openAiKey, pseudocode, 'pseudocode');
+      setDesignToolsData(result);
+    } catch {
+      setDesignToolsData(null);
+    } finally {
+      setIsDesignToolsLoading(false);
+    }
+  };
+
+  const handleGenerateDesignTools = async () => {
+    if (showDesignTools && designToolsData) {
+      setShowDesignTools(false);
+      return;
+    }
+    setShowDesignTools(true);
+    setShowConversion(false);
+    await runDesignToolsGeneration();
   };
 
   const gearColor =
@@ -324,8 +355,10 @@ function App() {
             onShowHelp={() => setShowHelp(true)}
             onImportCode={handleImportCode}
             onCorrectPseudocode={handleCorrectPseudocode}
+            onGenerateDesignTools={handleGenerateDesignTools}
             hasAI={isLoggedIn && apiKeyStatus === 'valid'}
             aiLoading={aiLoading}
+            designToolsActive={showDesignTools}
           />
 
           <div className="flex-1 flex overflow-hidden">
@@ -334,7 +367,7 @@ function App() {
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-              <div className={`${showConversion ? 'w-1/2' : 'w-full'} transition-all duration-300 border-r border-gray-200 dark:border-gray-700`}>
+              <div className={`${showConversion || showDesignTools ? 'w-1/2' : 'w-full'} transition-all duration-300 border-r border-gray-200 dark:border-gray-700`}>
                 <div className="h-full bg-white dark:bg-gray-800 rounded-tl-lg shadow-inner">
                   <div className="h-full p-2">
                     <PseudocodeEditor
@@ -352,6 +385,19 @@ function App() {
                     content={convertedCode}
                     language={convertedLanguage}
                     onClose={() => setShowConversion(false)}
+                  />
+                </div>
+              )}
+
+              {showDesignTools && (
+                <div className="w-1/2 overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+                  <DesignTools
+                    data={designToolsData!}
+                    isLoading={isDesignToolsLoading}
+                    onRegenerate={() => {
+                      setDesignToolsData(null);
+                      runDesignToolsGeneration();
+                    }}
                   />
                 </div>
               )}
