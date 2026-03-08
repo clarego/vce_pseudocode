@@ -28,17 +28,29 @@ export const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
     return Math.floor(spaces / 4);
   };
 
+  const shouldDedentLine = (trimmed: string): boolean => {
+    return trimmed === 'END' || trimmed === 'END IF' || trimmed === 'END FOR' ||
+      trimmed === 'END WHILE' || trimmed === 'ELSE' || trimmed.startsWith('ELSE IF ') ||
+      trimmed.startsWith('UNTIL ');
+  };
+
+  const shouldIndentNextLine = (trimmed: string): boolean => {
+    return trimmed === 'BEGIN' || trimmed.startsWith('IF ') || trimmed === 'ELSE' ||
+      trimmed.startsWith('ELSE IF ') || trimmed.startsWith('FOR ') ||
+      trimmed.startsWith('WHILE ') || trimmed.startsWith('REPEAT') ||
+      trimmed.startsWith('DEFINE ') || trimmed.endsWith('THEN');
+  };
+
   const calculateIndentForNextLine = (currentLine: string, allLines: string[], lineIndex: number): number => {
     const trimmed = currentLine.trim();
-    let currentIndent = getIndentLevel(currentLine);
+    const currentIndent = getIndentLevel(currentLine);
 
-    if (trimmed === 'BEGIN' || trimmed.startsWith('IF ') || trimmed === 'ELSE' ||
-        trimmed.startsWith('ELSE IF ') || trimmed.startsWith('FOR ') ||
-        trimmed.startsWith('WHILE ') || trimmed.startsWith('DEFINE ')) {
+    if (shouldIndentNextLine(trimmed)) {
       return currentIndent + 1;
     }
 
-    if (trimmed === 'END' || trimmed === 'END IF' || trimmed === 'END FOR' || trimmed === 'END WHILE') {
+    if (trimmed === 'END' || trimmed === 'END IF' || trimmed === 'END FOR' ||
+        trimmed === 'END WHILE' || trimmed.startsWith('UNTIL ')) {
       return Math.max(0, currentIndent);
     }
 
@@ -88,11 +100,65 @@ export const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
         textarea.selectionStart = textarea.selectionEnd = newCursorPos;
         onCursorPositionChange(newCursorPos);
       }, 0);
+    } else if (e.key === 'Backspace') {
+      const cursorPos = textarea.selectionStart;
+      const selEnd = textarea.selectionEnd;
+      if (cursorPos !== selEnd) return;
+
+      const textBefore = value.substring(0, cursorPos);
+      const lines = textBefore.split('\n');
+      const currentLine = lines[lines.length - 1];
+
+      if (currentLine.length > 0 && currentLine.trim() === '' && currentLine.length % 4 === 0) {
+        e.preventDefault();
+        const textAfter = value.substring(cursorPos);
+        const newLine = currentLine.substring(4);
+        const newValue = [...lines.slice(0, -1), newLine].join('\n') + textAfter;
+        onChange(newValue);
+
+        setTimeout(() => {
+          const newCursorPos = cursorPos - 4;
+          textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+          onCursorPositionChange(newCursorPos);
+        }, 0);
+      }
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value);
+    const newValue = e.target.value;
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      onChange(newValue);
+      return;
+    }
+
+    const cursorPos = textarea.selectionStart;
+    const textBefore = newValue.substring(0, cursorPos);
+    const lines = textBefore.split('\n');
+    const currentLine = lines[lines.length - 1];
+    const trimmed = currentLine.trim();
+
+    if (shouldDedentLine(trimmed) && currentLine.startsWith('    ')) {
+      const currentIndent = getIndentLevel(currentLine);
+      if (currentIndent > 0) {
+        const newIndent = Math.max(0, currentIndent - 1);
+        const newIndentString = '    '.repeat(newIndent);
+        const newLine = newIndentString + trimmed;
+        const linesBeforeCurrent = lines.slice(0, -1);
+        const textAfter = newValue.substring(cursorPos);
+        const replaced = [...linesBeforeCurrent, newLine].join('\n') + textAfter;
+        onChange(replaced);
+        setTimeout(() => {
+          const newCursorPos = cursorPos - 4;
+          textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+          onCursorPositionChange(newCursorPos);
+        }, 0);
+        return;
+      }
+    }
+
+    onChange(newValue);
   };
 
   const handleClick = () => {

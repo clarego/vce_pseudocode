@@ -52,10 +52,36 @@ export const StudyMode: React.FC = () => {
     setConvertedCode(null);
   };
 
+  const autoIndentCode = (code: string): string => {
+    const lines = code.split('\n');
+    let indentLevel = 0;
+    return lines.map(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return '    '.repeat(indentLevel);
+
+      const dedentWords = ['END IF', 'END FOR', 'END WHILE', 'END', 'ELSE IF ', 'ELSE', 'UNTIL '];
+      const shouldDedent = dedentWords.some(w =>
+        trimmed === w || (w.endsWith(' ') && trimmed.startsWith(w))
+      );
+      if (shouldDedent && indentLevel > 0) indentLevel--;
+
+      const indented = '    '.repeat(indentLevel) + trimmed;
+
+      const indentWords = ['BEGIN', 'ELSE IF ', 'ELSE', 'DEFINE ', 'FOR ', 'WHILE ', 'REPEAT'];
+      const endsWithThen = trimmed.endsWith('THEN');
+      const shouldIndent = indentWords.some(w =>
+        trimmed === w || (w.endsWith(' ') && trimmed.startsWith(w))
+      ) || endsWithThen;
+      if (shouldIndent) indentLevel++;
+
+      return indented;
+    }).join('\n');
+  };
+
   const handleExerciseSelect = (index: number) => {
     const exercise = lessonsExercises[index];
     setSelectedExercise(index);
-    setExerciseCode(exercise.starter_code || '');
+    setExerciseCode(autoIndentCode(exercise.starter_code || ''));
     setShowHint(false);
     setShowSolution(false);
     setShowAnswer(false);
@@ -232,6 +258,27 @@ export const StudyMode: React.FC = () => {
         const newCursorPos = cursorPos + 4;
         textarea.selectionStart = textarea.selectionEnd = newCursorPos;
       }, 0);
+    } else if (e.key === 'Backspace') {
+      const cursorPos = textarea.selectionStart;
+      const selEnd = textarea.selectionEnd;
+      if (cursorPos !== selEnd) return;
+
+      const textBefore = exerciseCode.substring(0, cursorPos);
+      const lines = textBefore.split('\n');
+      const currentLine = lines[lines.length - 1];
+
+      if (currentLine.length > 0 && currentLine.trim() === '' && currentLine.length % 4 === 0) {
+        e.preventDefault();
+        const textAfter = exerciseCode.substring(cursorPos);
+        const newLine = currentLine.substring(4);
+        const newValue = [...lines.slice(0, -1), newLine].join('\n') + textAfter;
+        setExerciseCode(newValue);
+
+        setTimeout(() => {
+          const newCursorPos = cursorPos - 4;
+          textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+        }, 0);
+      }
     }
   };
 
