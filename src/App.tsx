@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal, AlignJustify, X } from 'lucide-react';
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
@@ -39,6 +39,40 @@ function App() {
   const [designToolsData, setDesignToolsData] = useState<DesignToolsData | null>(null);
   const [isDesignToolsLoading, setIsDesignToolsLoading] = useState(false);
   const [showMobileWordPanel, setShowMobileWordPanel] = useState(false);
+  const [rightPanelWidth, setRightPanelWidth] = useState(50);
+  const isDragging = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const totalWidth = rect.width;
+    const rightWidth = ((totalWidth - offsetX) / totalWidth) * 100;
+    setRightPanelWidth(Math.min(Math.max(rightWidth, 20), 75));
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    isDragging.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark' || theme === 'hacker');
@@ -409,8 +443,11 @@ function App() {
               <ReservedWordPanel onWordClick={(w) => { handleWordClick(w); setShowMobileWordPanel(false); }} />
             </div>
 
-            <div className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0">
-              <div className={`${showConversion || showDesignTools ? 'sm:w-1/2' : 'sm:w-full'} flex-1 sm:flex-none transition-all duration-300 border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700`}>
+            <div ref={containerRef} className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0">
+              <div
+                className="flex-1 sm:flex-none transition-none border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700"
+                style={(showConversion || showDesignTools) ? { width: `${100 - rightPanelWidth}%` } : { width: '100%' }}
+              >
                 <div className="h-full bg-white dark:bg-gray-800 rounded-tl-lg shadow-inner">
                   <div className="h-full flex flex-col">
                     <div className="flex items-center gap-2 px-3 py-2 sm:hidden border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
@@ -442,8 +479,18 @@ function App() {
                 </div>
               </div>
 
+              {(showConversion || showDesignTools) && (
+                <div
+                  className="hidden sm:flex w-1.5 flex-shrink-0 cursor-col-resize items-center justify-center group relative z-10"
+                  onMouseDown={handleMouseDown}
+                >
+                  <div className="w-0.5 h-full bg-gray-200 dark:bg-gray-700 group-hover:bg-blue-400 dark:group-hover:bg-blue-500 transition-colors" />
+                  <div className="absolute inset-y-0 -left-1 -right-1" />
+                </div>
+              )}
+
               {showConversion && (
-                <div className="sm:w-1/2 flex-1 sm:flex-none overflow-hidden">
+                <div className="flex-1 sm:flex-none overflow-hidden" style={{ width: `${rightPanelWidth}%` }}>
                   <ConversionPanel
                     content={convertedCode}
                     language={convertedLanguage}
@@ -453,7 +500,7 @@ function App() {
               )}
 
               {showDesignTools && (
-                <div className="sm:w-1/2 flex-1 sm:flex-none overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+                <div className="flex-1 sm:flex-none overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700" style={{ width: `${rightPanelWidth}%` }}>
                   <DesignTools
                     data={designToolsData}
                     isLoading={isDesignToolsLoading}
