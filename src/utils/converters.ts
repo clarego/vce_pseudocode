@@ -55,6 +55,7 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
     if (trimmed === 'BEGIN') {
       if (language === 'python') {
         convertedLines.push('# Start of program');
+        indentLevel++;
       } else {
         convertedLines.push('function main() {');
         indentLevel++;
@@ -161,8 +162,14 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
       continue;
     }
 
-    if (trimmed.startsWith('OUTPUT ')) {
-      const value = trimmed.substring(7);
+    if (trimmed.startsWith('OUTPUT ') || trimmed.startsWith('OUTPUT(')) {
+      let value: string;
+      if (trimmed.startsWith('OUTPUT(')) {
+        const inner = trimmed.substring(7);
+        value = inner.endsWith(')') ? inner.slice(0, -1) : inner;
+      } else {
+        value = trimmed.substring(7);
+      }
       if (language === 'python') {
         convertedLines.push(getIndent(indentLevel) + `print(${value})`);
       } else {
