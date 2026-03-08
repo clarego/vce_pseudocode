@@ -1,14 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Code2, BookOpen, Edit } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Code2, BookOpen, Edit, Settings, Loader2 } from 'lucide-react';
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
 import { ConversionPanel } from './components/ConversionPanel';
 import { Toolbar } from './components/Toolbar';
 import { HelpModal } from './components/HelpModal';
 import { StudyMode } from './components/StudyMode';
+import { LoginModal } from './components/LoginModal';
 import { templates } from './data/templates';
 import { pseudocodeToCode, codeToPseudocode } from './utils/converters';
+import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode, validateOpenAIKey } from './utils/aiService';
 import { exportToPDF, downloadFile } from './utils/pdfExport';
+
+type ApiKeyStatus = 'unchecked' | 'valid' | 'invalid';
 
 function App() {
   const [mode, setMode] = useState<'editor' | 'study'>('study');
@@ -20,7 +24,13 @@ function App() {
   const [convertedLanguage, setConvertedLanguage] = useState<'python' | 'javascript'>('python');
   const [showHelp, setShowHelp] = useState(false);
   const [filename, setFilename] = useState('pseudocode');
-  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  const [showLogin, setShowLogin] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState('');
+  const [openAiKey, setOpenAiKey] = useState<string | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('unchecked');
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -29,6 +39,27 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  const handleLoginSuccess = async (key: string | null, username: string) => {
+    setIsLoggedIn(true);
+    setLoggedInUser(username);
+    setShowLogin(false);
+    setOpenAiKey(key);
+
+    if (key) {
+      const valid = await validateOpenAIKey(key);
+      setApiKeyStatus(valid ? 'valid' : 'invalid');
+    } else {
+      setApiKeyStatus('invalid');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setLoggedInUser('');
+    setOpenAiKey(null);
+    setApiKeyStatus('unchecked');
+  };
 
   const getIndentLevel = (line: string): number => {
     let spaces = 0;
@@ -53,7 +84,6 @@ function App() {
     const currentLineTrimmed = currentLine.trim();
 
     let finalText = text;
-    let additionalOffset = 1;
 
     if (shouldOutdent(text) && currentLineTrimmed === '') {
       const newIndent = Math.max(0, currentIndent - 1);
@@ -94,16 +124,38 @@ function App() {
     }
   };
 
-  const handleConvertToPython = () => {
-    const converted = pseudocodeToCode(pseudocode, 'python');
-    setConvertedCode(converted);
+  const handleConvertToPython = async () => {
+    if (openAiKey && apiKeyStatus === 'valid') {
+      setAiLoading(true);
+      try {
+        const converted = await aiPseudocodeToCode(openAiKey, pseudocode, 'python');
+        setConvertedCode(converted);
+      } catch {
+        setConvertedCode(pseudocodeToCode(pseudocode, 'python'));
+      } finally {
+        setAiLoading(false);
+      }
+    } else {
+      setConvertedCode(pseudocodeToCode(pseudocode, 'python'));
+    }
     setConvertedLanguage('python');
     setShowConversion(true);
   };
 
-  const handleConvertToJavaScript = () => {
-    const converted = pseudocodeToCode(pseudocode, 'javascript');
-    setConvertedCode(converted);
+  const handleConvertToJavaScript = async () => {
+    if (openAiKey && apiKeyStatus === 'valid') {
+      setAiLoading(true);
+      try {
+        const converted = await aiPseudocodeToCode(openAiKey, pseudocode, 'javascript');
+        setConvertedCode(converted);
+      } catch {
+        setConvertedCode(pseudocodeToCode(pseudocode, 'javascript'));
+      } finally {
+        setAiLoading(false);
+      }
+    } else {
+      setConvertedCode(pseudocodeToCode(pseudocode, 'javascript'));
+    }
     setConvertedLanguage('javascript');
     setShowConversion(true);
   };
@@ -132,12 +184,41 @@ function App() {
     setIsDarkMode(!isDarkMode);
   };
 
-  const handleImportCode = (code: string, language: 'python' | 'javascript') => {
-    const converted = codeToPseudocode(code, language);
-    setPseudocode(converted);
+  const handleImportCode = async (code: string, language: 'python' | 'javascript') => {
+    if (openAiKey && apiKeyStatus === 'valid') {
+      setAiLoading(true);
+      try {
+        const converted = await aiCodeToPseudocode(openAiKey, code, language);
+        setPseudocode(converted);
+      } catch {
+        setPseudocode(codeToPseudocode(code, language));
+      } finally {
+        setAiLoading(false);
+      }
+    } else {
+      setPseudocode(codeToPseudocode(code, language));
+    }
     setCursorPosition(0);
     setShowConversion(false);
   };
+
+  const handleCorrectPseudocode = async () => {
+    if (!openAiKey || apiKeyStatus !== 'valid') return;
+    setAiLoading(true);
+    try {
+      const corrected = await aiCorrectPseudocode(openAiKey, pseudocode);
+      setPseudocode(corrected);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const gearColor =
+    apiKeyStatus === 'valid'
+      ? 'text-green-400'
+      : apiKeyStatus === 'invalid'
+      ? 'text-red-400'
+      : 'text-gray-400';
 
   return (
     <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
@@ -175,6 +256,38 @@ function App() {
                 Editor
               </button>
             </div>
+
+            {isLoggedIn ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-blue-100">
+                  Signed in as <span className="font-semibold text-white">{loggedInUser}</span>
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowLogin(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-colors border border-white/30"
+              >
+                Sign In
+              </button>
+            )}
+
+            {isLoggedIn && (
+              <div title={apiKeyStatus === 'valid' ? 'AI features active' : 'AI key invalid or unavailable'}>
+                {aiLoading ? (
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                ) : (
+                  <Settings className={`w-6 h-6 ${gearColor}`} />
+                )}
+              </div>
+            )}
+
             {mode === 'editor' && (
               <div className="flex items-center gap-3">
                 <label className="text-sm font-medium">Filename:</label>
@@ -210,6 +323,9 @@ function App() {
             templates={templates}
             onShowHelp={() => setShowHelp(true)}
             onImportCode={handleImportCode}
+            onCorrectPseudocode={handleCorrectPseudocode}
+            hasAI={isLoggedIn && apiKeyStatus === 'valid'}
+            aiLoading={aiLoading}
           />
 
           <div className="flex-1 flex overflow-hidden">
@@ -251,6 +367,12 @@ function App() {
       </footer>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showLogin && (
+        <LoginModal
+          onClose={() => setShowLogin(false)}
+          onLoginSuccess={(key, username) => handleLoginSuccess(key, username)}
+        />
+      )}
     </div>
   );
 }

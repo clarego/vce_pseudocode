@@ -9,7 +9,9 @@ import {
   HelpCircle,
   ChevronDown,
   Code2,
-  RefreshCw
+  RefreshCw,
+  Wand2,
+  Loader2,
 } from 'lucide-react';
 
 interface ToolbarProps {
@@ -25,6 +27,9 @@ interface ToolbarProps {
   templates: Array<{ name: string; description: string; code: string }>;
   onShowHelp: () => void;
   onImportCode: (code: string, language: 'python' | 'javascript') => void;
+  onCorrectPseudocode: () => void;
+  hasAI: boolean;
+  aiLoading: boolean;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -40,6 +45,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   templates,
   onShowHelp,
   onImportCode,
+  onCorrectPseudocode,
+  hasAI,
+  aiLoading,
 }) => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
@@ -102,10 +110,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowConvert(!showConvert)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors"
+              disabled={aiLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Code2 className="w-4 h-4" />
               Convert
+              {hasAI && <span className="text-xs bg-green-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
               <ChevronDown className="w-4 h-4" />
             </button>
 
@@ -146,7 +156,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowDownload(!showDownload)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-700 text-white transition-colors"
             >
               <Download className="w-4 h-4" />
               Download
@@ -200,11 +210,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
           <button
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors"
+            disabled={aiLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Upload className="w-4 h-4" />
             Import Code
+            {hasAI && <span className="text-xs bg-teal-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
           </button>
+
+          {hasAI && (
+            <button
+              onClick={onCorrectPseudocode}
+              disabled={aiLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {aiLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
+              )}
+              AI Correct
+            </button>
+          )}
 
           <button
             onClick={onClear}
@@ -240,6 +267,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                 Import Code to Pseudocode
+                {hasAI && (
+                  <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                    (AI-powered)
+                  </span>
+                )}
               </h2>
             </div>
 
