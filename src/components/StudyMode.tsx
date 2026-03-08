@@ -970,7 +970,7 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
 
                   {(designToolsData || isDesignToolsLoading) && (
                     <DesignTools
-                      data={designToolsData!}
+                      data={designToolsData}
                       isLoading={isDesignToolsLoading}
                       onRegenerate={handleGenerateDesignTools}
                     />
