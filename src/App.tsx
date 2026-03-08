@@ -263,7 +263,7 @@ function App() {
             <Code2 className={`w-8 h-8 ${theme === 'hacker' ? 'text-green-400' : ''}`} />
             <div>
               <h1 className={`text-2xl font-bold ${theme === 'hacker' ? 'text-green-400 font-mono' : ''}`}>VCE Pseudocode Learning Platform</h1>
-              <p className={`text-sm ${theme === 'hacker' ? 'text-green-600 font-mono' : 'text-blue-100'}`}>Victorian Curriculum Standards</p>
+              <p className={`text-sm ${theme === 'hacker' ? 'text-green-400/70 font-mono' : 'text-blue-100'}`}>Victorian Curriculum Standards</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

@@ -37,8 +37,29 @@
 .hacker .border-gray-200,
 .hacker .border-gray-300,
 .hacker .border-gray-700 {
-  border-color: #00ff41 !important;
-  opacity: 0.4;
+  border-color: rgba(0, 255, 65, 0.35) !important;
+}
+
+.hacker .text-gray-500,
+.hacker .text-gray-400 {
+  color: #00cc33 !important;
+}
+
+.hacker .text-blue-600,
+.hacker .text-blue-700,
+.hacker .text-blue-400,
+.hacker .text-blue-300 {
+  color: #00ff41 !important;
+}
+
+.hacker .text-red-600,
+.hacker .text-red-400 {
+  color: #ff4444 !important;
+}
+
+.hacker .text-purple-600,
+.hacker .text-purple-400 {
+  color: #00e5cc !important;
 }
 
 .hacker header {
