@@ -34,9 +34,9 @@ export const ReservedWordPanel: React.FC<ReservedWordPanelProps> = ({ onWordClic
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
-      <div className="p-4">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
+    <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-xl sm:shadow-none">
+      <div className="p-3 sm:p-4">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3 sm:mb-4 hidden sm:block">
           Reserved Words
         </h2>
 
@@ -66,7 +66,7 @@ export const ReservedWordPanel: React.FC<ReservedWordPanelProps> = ({ onWordClic
                     <button
                       key={word}
                       onClick={() => onWordClick(word)}
-                      className="block w-full text-left px-3 py-2 text-sm font-mono rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 transition-colors"
+                      className="block w-full text-left px-3 py-2.5 sm:py-2 text-sm font-mono rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 transition-colors active:bg-blue-100 dark:active:bg-blue-800"
                     >
                       {word}
                     </button>

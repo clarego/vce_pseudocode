@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal } from 'lucide-react';
+import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal, AlignJustify, X } from 'lucide-react';
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
 import { ConversionPanel } from './components/ConversionPanel';
@@ -38,6 +38,7 @@ function App() {
   const [showDesignTools, setShowDesignTools] = useState(false);
   const [designToolsData, setDesignToolsData] = useState<DesignToolsData | null>(null);
   const [isDesignToolsLoading, setIsDesignToolsLoading] = useState(false);
+  const [showMobileWordPanel, setShowMobileWordPanel] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark' || theme === 'hacker');
@@ -257,93 +258,98 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
-      <header className={`text-white p-6 shadow-lg ${theme === 'hacker' ? 'bg-black border-b border-green-500/40' : 'bg-gradient-to-r from-blue-600 to-teal-600'}`}>
-        <div className="flex items-center justify-between max-w-[2000px] mx-auto">
-          <div className="flex items-center gap-3">
-            <Code2 className={`w-8 h-8 ${theme === 'hacker' ? 'text-green-400' : ''}`} />
-            <div>
-              <h1 className={`text-2xl font-bold ${theme === 'hacker' ? 'text-green-400 font-mono' : ''}`}>VCE Pseudocode Learning Platform</h1>
-              <p className={`text-sm ${theme === 'hacker' ? 'text-green-400/70 font-mono' : 'text-blue-100'}`}>Victorian Curriculum Standards</p>
+      <header className={`text-white shadow-lg ${theme === 'hacker' ? 'bg-black border-b border-green-500/40' : 'bg-gradient-to-r from-blue-600 to-teal-600'}`}>
+        <div className="max-w-[2000px] mx-auto px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <Code2 className={`w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 ${theme === 'hacker' ? 'text-green-400' : ''}`} />
+              <div className="min-w-0">
+                <h1 className={`text-base sm:text-2xl font-bold leading-tight truncate ${theme === 'hacker' ? 'text-green-400 font-mono' : ''}`}>
+                  <span className="hidden sm:inline">VCE Pseudocode Learning Platform</span>
+                  <span className="sm:hidden">VCE Pseudocode</span>
+                </h1>
+                <p className={`text-xs hidden sm:block ${theme === 'hacker' ? 'text-green-400/70 font-mono' : 'text-blue-100'}`}>Victorian Curriculum Standards</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={cycleTheme}
-              className={themeButtonClass}
-              title={`Theme: ${themeLabel} (click to cycle)`}
-            >
-              {themeIcon}
-              {themeLabel}
-            </button>
-
-            <div className={`flex rounded-lg p-1 ${theme === 'hacker' ? 'bg-green-500/10 border border-green-500/30' : 'bg-white/10'}`}>
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               <button
-                onClick={() => setMode('study')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                  mode === 'study'
-                    ? theme === 'hacker' ? 'bg-green-500/20 text-green-300 font-semibold border border-green-500/40' : 'bg-white text-blue-600 font-semibold'
-                    : theme === 'hacker' ? 'text-green-400 hover:bg-green-500/10' : 'text-white hover:bg-white/10'
-                }`}
+                onClick={cycleTheme}
+                className={`${themeButtonClass} !px-2 sm:!px-3`}
+                title={`Theme: ${themeLabel} (click to cycle)`}
               >
-                <BookOpen className="w-4 h-4" />
-                Study
+                {themeIcon}
+                <span className="hidden sm:inline">{themeLabel}</span>
               </button>
-              <button
-                onClick={() => setMode('editor')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                  mode === 'editor'
-                    ? theme === 'hacker' ? 'bg-green-500/20 text-green-300 font-semibold border border-green-500/40' : 'bg-white text-blue-600 font-semibold'
-                    : theme === 'hacker' ? 'text-green-400 hover:bg-green-500/10' : 'text-white hover:bg-white/10'
-                }`}
-              >
-                <Edit className="w-4 h-4" />
-                Editor
-              </button>
-            </div>
 
-            {isLoggedIn ? (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-blue-100">
-                  Signed in as <span className="font-semibold text-white">{loggedInUser}</span>
-                </span>
+              <div className={`flex rounded-lg p-1 ${theme === 'hacker' ? 'bg-green-500/10 border border-green-500/30' : 'bg-white/10'}`}>
                 <button
-                  onClick={handleLogout}
-                  className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-colors"
+                  onClick={() => setMode('study')}
+                  className={`flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-colors text-sm ${
+                    mode === 'study'
+                      ? theme === 'hacker' ? 'bg-green-500/20 text-green-300 font-semibold border border-green-500/40' : 'bg-white text-blue-600 font-semibold'
+                      : theme === 'hacker' ? 'text-green-400 hover:bg-green-500/10' : 'text-white hover:bg-white/10'
+                  }`}
                 >
-                  Sign Out
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden xs:inline sm:inline">Study</span>
+                </button>
+                <button
+                  onClick={() => setMode('editor')}
+                  className={`flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-colors text-sm ${
+                    mode === 'editor'
+                      ? theme === 'hacker' ? 'bg-green-500/20 text-green-300 font-semibold border border-green-500/40' : 'bg-white text-blue-600 font-semibold'
+                      : theme === 'hacker' ? 'text-green-400 hover:bg-green-500/10' : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Edit className="w-4 h-4" />
+                  <span className="hidden xs:inline sm:inline">Editor</span>
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowLogin(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-colors border border-white/30"
-              >
-                Sign In
-              </button>
-            )}
 
-            {isLoggedIn && (
-              <div title={apiKeyStatus === 'valid' ? 'AI features active' : 'AI key invalid or unavailable'}>
-                {aiLoading ? (
-                  <Loader2 className="w-6 h-6 text-white animate-spin" />
-                ) : (
-                  <Settings className={`w-6 h-6 ${gearColor}`} />
-                )}
-              </div>
-            )}
+              {isLoggedIn ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm text-blue-100 hidden sm:inline">
+                    <span className="font-semibold text-white">{loggedInUser}</span>
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs sm:text-sm transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-colors border border-white/30 text-sm"
+                >
+                  Sign In
+                </button>
+              )}
 
-            {mode === 'editor' && (
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium">Filename:</label>
-                <input
-                  type="text"
-                  value={filename}
-                  onChange={(e) => setFilename(e.target.value)}
-                  className="px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white placeholder-blue-200 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 w-48"
-                  placeholder="Enter filename"
-                />
-              </div>
-            )}
+              {isLoggedIn && (
+                <div title={apiKeyStatus === 'valid' ? 'AI features active' : 'AI key invalid or unavailable'}>
+                  {aiLoading ? (
+                    <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
+                  ) : (
+                    <Settings className={`w-5 h-5 sm:w-6 sm:h-6 ${gearColor}`} />
+                  )}
+                </div>
+              )}
+
+              {mode === 'editor' && (
+                <div className="hidden sm:flex items-center gap-2">
+                  <label className="text-sm font-medium whitespace-nowrap">Filename:</label>
+                  <input
+                    type="text"
+                    value={filename}
+                    onChange={(e) => setFilename(e.target.value)}
+                    className="px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white placeholder-blue-200 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 w-36 lg:w-48"
+                    placeholder="Enter filename"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -372,26 +378,64 @@ function App() {
             designToolsActive={showDesignTools}
           />
 
-          <div className="flex-1 flex overflow-hidden">
-            <div className="w-64 flex-shrink-0">
-              <ReservedWordPanel onWordClick={handleWordClick} />
+          <div className="flex-1 flex overflow-hidden relative">
+            {showMobileWordPanel && (
+              <div
+                className="fixed inset-0 bg-black/50 z-30 sm:hidden"
+                onClick={() => setShowMobileWordPanel(false)}
+              />
+            )}
+
+            <div className={`
+              fixed sm:relative inset-y-0 left-0 z-40 sm:z-auto
+              w-72 sm:w-64 flex-shrink-0
+              transition-transform duration-300
+              ${showMobileWordPanel ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}
+            `}>
+              <div className="flex items-center justify-between px-4 pt-3 sm:hidden">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Reserved Words</span>
+                <button onClick={() => setShowMobileWordPanel(false)} className="p-1 rounded text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <ReservedWordPanel onWordClick={(w) => { handleWordClick(w); setShowMobileWordPanel(false); }} />
             </div>
 
-            <div className="flex-1 flex overflow-hidden">
-              <div className={`${showConversion || showDesignTools ? 'w-1/2' : 'w-full'} transition-all duration-300 border-r border-gray-200 dark:border-gray-700`}>
+            <div className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0">
+              <div className={`${showConversion || showDesignTools ? 'sm:w-1/2' : 'sm:w-full'} flex-1 sm:flex-none transition-all duration-300 border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700`}>
                 <div className="h-full bg-white dark:bg-gray-800 rounded-tl-lg shadow-inner">
-                  <div className="h-full p-2">
-                    <PseudocodeEditor
-                      value={pseudocode}
-                      onChange={setPseudocode}
-                      onCursorPositionChange={setCursorPosition}
-                    />
+                  <div className="h-full flex flex-col">
+                    <div className="flex items-center gap-2 px-3 py-2 sm:hidden border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                      <button
+                        onClick={() => setShowMobileWordPanel(true)}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white"
+                      >
+                        <AlignJustify className="w-3 h-3" />
+                        Words
+                      </button>
+                      {(showConversion || showDesignTools) && (
+                        <button
+                          onClick={() => { setShowConversion(false); setShowDesignTools(false); }}
+                          className="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 ml-auto"
+                        >
+                          <X className="w-3 h-3" />
+                          Close Panel
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex-1 p-2 overflow-hidden">
+                      <PseudocodeEditor
+                        value={pseudocode}
+                        onChange={setPseudocode}
+                        onCursorPositionChange={setCursorPosition}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
               {showConversion && (
-                <div className="w-1/2">
+                <div className="sm:w-1/2 flex-1 sm:flex-none overflow-hidden">
                   <ConversionPanel
                     content={convertedCode}
                     language={convertedLanguage}
@@ -401,7 +445,7 @@ function App() {
               )}
 
               {showDesignTools && (
-                <div className="w-1/2 overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+                <div className="sm:w-1/2 flex-1 sm:flex-none overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
                   <DesignTools
                     data={designToolsData!}
                     isLoading={isDesignToolsLoading}

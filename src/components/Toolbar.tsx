@@ -64,17 +64,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 py-2 sm:p-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <div className="relative">
             <button
               onClick={() => setShowTemplates(!showTemplates)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm"
+              title="Templates"
             >
               <FileText className="w-4 h-4" />
-              Templates
-              <ChevronDown className="w-4 h-4" />
+              <span className="hidden sm:inline">Templates</span>
+              <ChevronDown className="w-3.5 h-3.5" />
             </button>
 
             {showTemplates && (
@@ -110,12 +111,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               onClick={() => setShowConvert(!showConvert)}
               disabled={aiLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-sm"
+              title="Convert"
             >
               <Code2 className="w-4 h-4" />
-              Convert
-              {hasAI && <span className="text-xs bg-green-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
-              <ChevronDown className="w-4 h-4" />
+              <span className="hidden sm:inline">Convert</span>
+              {hasAI && <span className="hidden sm:inline text-xs bg-green-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
+              <ChevronDown className="w-3.5 h-3.5" />
             </button>
 
             {showConvert && (
@@ -155,11 +157,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowDownload(!showDownload)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-700 text-white transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-slate-600 hover:bg-slate-700 text-white transition-colors text-sm"
+              title="Download"
             >
               <Download className="w-4 h-4" />
-              Download
-              <ChevronDown className="w-4 h-4" />
+              <span className="hidden sm:inline">Download</span>
+              <ChevronDown className="w-3.5 h-3.5" />
             </button>
 
             {showDownload && (
@@ -210,52 +213,56 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             onClick={() => setShowImport(true)}
             disabled={aiLoading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-sm"
+            title="Import Code"
           >
             <Upload className="w-4 h-4" />
-            Import Code
-            {hasAI && <span className="text-xs bg-teal-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
+            <span className="hidden sm:inline">Import Code</span>
+            {hasAI && <span className="hidden sm:inline text-xs bg-teal-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
           </button>
 
           {hasAI && (
             <button
               onClick={onCorrectPseudocode}
               disabled={aiLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-sm"
+              title="AI Correct"
             >
               {aiLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Wand2 className="w-4 h-4" />
               )}
-              AI Correct
+              <span className="hidden sm:inline">AI Correct</span>
             </button>
           )}
 
           <button
             onClick={onGenerateDesignTools}
             disabled={aiLoading && !designToolsActive}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-sm ${
               designToolsActive
                 ? 'bg-sky-700 hover:bg-sky-800 text-white ring-2 ring-sky-400'
                 : 'bg-sky-600 hover:bg-sky-700 text-white'
             }`}
+            title="Design Tools"
           >
             {aiLoading && !designToolsActive ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <LayoutDashboard className="w-4 h-4" />
             )}
-            Design Tools
-            {hasAI && <span className="text-xs bg-sky-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
+            <span className="hidden sm:inline">Design Tools</span>
+            {hasAI && <span className="hidden sm:inline text-xs bg-sky-500 px-1.5 py-0.5 rounded-full font-semibold">AI</span>}
           </button>
 
           <button
             onClick={onClear}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-sm"
+            title="Clear"
           >
             <Trash2 className="w-4 h-4" />
-            Clear
+            <span className="hidden sm:inline">Clear</span>
           </button>
         </div>
 

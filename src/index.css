@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  button, a {
+    touch-action: manipulation;
+  }
+
+  @media (max-width: 640px) {
+    input, textarea, select {
+      font-size: 16px;
+    }
+  }
+}
+
 .hacker * {
   font-family: 'Courier New', Courier, monospace !important;
 }
