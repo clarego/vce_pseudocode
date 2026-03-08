@@ -270,6 +270,14 @@ function App() {
                 </h1>
                 <p className={`text-xs hidden sm:block ${theme === 'hacker' ? 'text-green-400/70 font-mono' : 'text-blue-100'}`}>Victorian Curriculum Standards</p>
               </div>
+              <div className={`hidden sm:flex items-center ml-2 pl-3 border-l ${theme === 'hacker' ? 'border-green-500/40' : 'border-white/30'}`}>
+                <img
+                  src="/cla_sol.png"
+                  alt="Clarence's Solutions"
+                  className="h-8 w-auto object-contain"
+                  style={{ filter: theme === 'hacker' ? 'brightness(0) saturate(100%) invert(74%) sepia(41%) saturate(500%) hue-rotate(82deg) brightness(100%) contrast(90%)' : 'brightness(0) invert(1)' }}
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               <button
