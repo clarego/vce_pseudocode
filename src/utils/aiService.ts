@@ -224,6 +224,48 @@ export interface ErdRelationship {
   attributes?: ErdAttribute[];
 }
 
+export type MockupWidgetType =
+  | 'window'
+  | 'label'
+  | 'textbox'
+  | 'textarea'
+  | 'button'
+  | 'dropdown'
+  | 'checkbox'
+  | 'radio'
+  | 'listbox'
+  | 'table'
+  | 'image'
+  | 'progressbar'
+  | 'menubar'
+  | 'statusbar'
+  | 'groupbox'
+  | 'annotation';
+
+export interface MockupWidget {
+  id: string;
+  type: MockupWidgetType;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  placeholder?: string;
+  items?: string[];
+  checked?: boolean;
+  value?: string;
+  annotation?: string;
+  columns?: string[];
+  rows?: string[][];
+}
+
+export interface MockupScreen {
+  title: string;
+  width: number;
+  height: number;
+  widgets: MockupWidget[];
+}
+
 export interface DesignTools {
   flowchart: FlowchartNode[];
   dataDictionary: DataDictionaryRow[];
@@ -239,6 +281,7 @@ export interface DesignTools {
     entities: ErdEntity[];
     relationships: ErdRelationship[];
   };
+  mockup: MockupScreen[];
 }
 
 export const aiGenerateDesignTools = async (
@@ -359,7 +402,23 @@ Return ONLY valid JSON matching this exact structure (no markdown, no extra text
         "attributes": []
       }
     ]
-  }
+  },
+  "mockup": [
+    {
+      "title": "Screen Title",
+      "width": 640,
+      "height": 480,
+      "widgets": [
+        { "id": "w1", "type": "menubar", "label": "File  Edit  Help", "x": 0, "y": 0, "width": 640, "height": 24 },
+        { "id": "w2", "type": "label", "label": "Enter your name:", "x": 20, "y": 50, "width": 160, "height": 24, "annotation": "Prompts the user" },
+        { "id": "w3", "type": "textbox", "label": "", "placeholder": "Type here...", "x": 190, "y": 50, "width": 200, "height": 28, "annotation": "User types their name" },
+        { "id": "w4", "type": "button", "label": "Submit", "x": 190, "y": 100, "width": 100, "height": 32, "annotation": "Triggers main calculation" },
+        { "id": "w5", "type": "label", "label": "Result:", "x": 20, "y": 160, "width": 80, "height": 24 },
+        { "id": "w6", "type": "label", "label": "—", "x": 110, "y": 160, "width": 280, "height": 24, "annotation": "Displays computed output" },
+        { "id": "w7", "type": "statusbar", "label": "Ready", "x": 0, "y": 456, "width": 640, "height": 24 }
+      ]
+    }
+  ]
 }
 
 VCAA Rules:
@@ -377,7 +436,24 @@ VCAA Rules:
 - DFD Level 1: numbered processes (label = "1 Name", "2 Name" etc), same external entities as Level 0, data stores appear (label = "D1 Name", "D2 Name"), all Level 0 data flows preserved. External entities CANNOT connect directly to data stores.
 - DFD Level 2: decomposes the FIRST complex process from Level 1, sub-processes numbered e.g. "1.1 Name", "1.2 Name". Balances with parent process flows.
 - All DFD data flow labels must use snake_case.
-- ERD: Identify all entities (nouns/objects) and relationships (verbs between entities) from the pseudocode/code. Include all relevant attributes. For cardinality use "one" or "many". For participation use "partial" or "total". Mark primary keys (isPrimary:true) and foreign keys (isForeign:true). Weak entities (isWeak:true) depend on a strong entity. Multi-valued attributes use isMultiValued:true. Derived attributes use isDerived:true.`;
+- ERD: Identify all entities (nouns/objects) and relationships (verbs between entities) from the pseudocode/code. Include all relevant attributes. For cardinality use "one" or "many". For participation use "partial" or "total". Mark primary keys (isPrimary:true) and foreign keys (isForeign:true). Weak entities (isWeak:true) depend on a strong entity. Multi-valued attributes use isMultiValued:true. Derived attributes use isDerived:true.
+- Mockup: Generate 1–3 realistic GUI screen mockups representing the interface a user would see when running this program. Use your judgment about the best widget for each interaction:
+  - INPUT for a numeric value → textbox with appropriate placeholder
+  - INPUT for a choice from a fixed list → dropdown or radio buttons
+  - INPUT for a long text → textarea
+  - INPUT for yes/no → checkbox or radio
+  - OUTPUT of a list of items → listbox or table
+  - OUTPUT of a single value → label or read-only textbox
+  - Repeated data entry → table with rows
+  - Progress/loading → progressbar
+  - Always include a menubar at y:0 if the app has multiple screens or menu items
+  - Always include a statusbar at the bottom if relevant
+  - Use groupbox to group related widgets (e.g. "Search Criteria", "Results")
+  - Add annotation text on key widgets explaining what they do (max 8 words)
+  - Coordinates and sizes must be realistic: screen width 640, height 480 typical. Widgets must not overlap.
+  - Widget label is the visible text on the widget (button text, field label, groupbox title, etc.)
+  - For annotation: attach a short label pointing to the widget describing its purpose in plain English
+  - All x, y, width, height values must be integers. Ensure all widgets fit within the screen bounds.`;
 
   const raw = await callOpenAI(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
   const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();

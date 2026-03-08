@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database } from 'lucide-react';
+import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor } from 'lucide-react';
 import type {
   DesignTools as DesignToolsData,
   FlowchartNode,
@@ -11,9 +11,11 @@ import type {
   DfdLevel,
   DfdElement,
   DfdFlow,
+  MockupScreen,
+  MockupWidget,
 } from '../utils/aiService';
 
-type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd' | 'erdChen' | 'erdCrowsFoot';
+type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd' | 'erdChen' | 'erdCrowsFoot' | 'mockup';
 
 interface DesignToolsProps {
   data: DesignToolsData;
@@ -29,6 +31,7 @@ const TAB_CONFIG: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'dfd', label: 'Data Flow Diagram', icon: <Network className="w-4 h-4" /> },
   { id: 'erdChen', label: "ERD (Chen's)", icon: <Database className="w-4 h-4" /> },
   { id: 'erdCrowsFoot', label: "ERD (Crow's Foot)", icon: <Database className="w-4 h-4" /> },
+  { id: 'mockup', label: 'GUI Mockup', icon: <Monitor className="w-4 h-4" /> },
 ];
 
 export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onRegenerate }) => {
@@ -83,6 +86,7 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
             {activeTab === 'dfd' && <DfdView levels={data.dfd} />}
             {activeTab === 'erdChen' && <ErdChenView erd={data.erd} />}
             {activeTab === 'erdCrowsFoot' && <ErdCrowsFootView erd={data.erd} />}
+            {activeTab === 'mockup' && <MockupView screens={data.mockup} />}
           </>
         )}
       </div>
@@ -1503,6 +1507,343 @@ function ErdCrowsFootView({ erd }: { erd: ErdData }) {
 
       <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg text-xs text-blue-700 dark:text-blue-300">
         <strong>Crow's Foot Notation:</strong> Entities are rectangles with a header. Relationship lines connect entities directly. The crow's foot symbol at each end shows cardinality (one / many). Two tick marks = mandatory (total participation). One tick mark = optional (partial participation).
+      </div>
+    </div>
+  );
+}
+
+// ─── GUI Mockup View ─────────────────────────────────────────────────────────
+
+function renderWidget(w: MockupWidget, isDark: boolean): React.ReactNode {
+  const fill = isDark ? '#1f2937' : '#ffffff';
+  const fillLight = isDark ? '#374151' : '#f3f4f6';
+  const fillBlue = isDark ? '#1e3a5f' : '#dbeafe';
+  const borderColor = isDark ? '#4b5563' : '#9ca3af';
+  const textColor = isDark ? '#f9fafb' : '#111827';
+  const dimColor = isDark ? '#6b7280' : '#9ca3af';
+  const accentColor = '#2563eb';
+
+  const { x, y, width: w2, height: h, label } = w;
+
+  switch (w.type) {
+    case 'window':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fillLight} stroke={borderColor} strokeWidth="1.5" />
+          <rect x={x} y={y} width={w2} height={22} fill={accentColor} />
+          <text x={x + 8} y={y + 14} fontSize="11" fontWeight="600" fill="white">{label}</text>
+          <circle cx={x + w2 - 12} cy={y + 11} r="5" fill="#ef4444" />
+          <circle cx={x + w2 - 26} cy={y + 11} r="5" fill="#f59e0b" />
+          <circle cx={x + w2 - 40} cy={y + 11} r="5" fill="#22c55e" />
+        </g>
+      );
+
+    case 'menubar':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fillLight} stroke={borderColor} strokeWidth="0.5" />
+          <text x={x + 10} y={y + h / 2 + 4} fontSize="11" fill={textColor}>{label}</text>
+        </g>
+      );
+
+    case 'statusbar':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fillLight} stroke={borderColor} strokeWidth="0.5" />
+          <text x={x + 8} y={y + h / 2 + 4} fontSize="10" fill={dimColor}>{label}</text>
+        </g>
+      );
+
+    case 'label':
+      return (
+        <text key={w.id} x={x} y={y + h / 2 + 4} fontSize="12" fill={textColor} fontFamily="sans-serif">
+          {label}
+        </text>
+      );
+
+    case 'textbox':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fill} stroke={borderColor} strokeWidth="1" rx="3" />
+          <text x={x + 6} y={y + h / 2 + 4} fontSize="11" fill={w.value ? textColor : dimColor} fontFamily="monospace">
+            {w.value || w.placeholder || ''}
+          </text>
+          <line x1={x + 6 + (w.value || w.placeholder || '').length * 6.2} y1={y + 4}
+            x2={x + 6 + (w.value || w.placeholder || '').length * 6.2} y2={y + h - 4}
+            stroke={accentColor} strokeWidth="1.2" opacity="0.7" />
+        </g>
+      );
+
+    case 'textarea':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fill} stroke={borderColor} strokeWidth="1" rx="3" />
+          <text x={x + 6} y={y + 16} fontSize="11" fill={w.value ? textColor : dimColor} fontFamily="monospace">
+            {w.value || w.placeholder || ''}
+          </text>
+          <line x1={x + w2 - 8} y1={y + h - 12} x2={x + w2 - 4} y2={y + h - 4} stroke={dimColor} strokeWidth="1" />
+          <line x1={x + w2 - 12} y1={y + h - 8} x2={x + w2 - 4} y2={y + h - 4} stroke={dimColor} strokeWidth="1" />
+        </g>
+      );
+
+    case 'button': {
+      const isDefault = label.toLowerCase().includes('ok') || label.toLowerCase().includes('submit') || label.toLowerCase().includes('confirm');
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h}
+            fill={isDefault ? accentColor : fillLight}
+            stroke={isDefault ? accentColor : borderColor}
+            strokeWidth="1.5" rx="4" />
+          <text x={x + w2 / 2} y={y + h / 2 + 4}
+            textAnchor="middle" fontSize="12" fontWeight="600"
+            fill={isDefault ? 'white' : textColor}>
+            {label}
+          </text>
+        </g>
+      );
+    }
+
+    case 'dropdown':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fill} stroke={borderColor} strokeWidth="1" rx="3" />
+          <text x={x + 8} y={y + h / 2 + 4} fontSize="11" fill={w.items?.[0] ? textColor : dimColor}>
+            {w.items?.[0] || label || 'Select...'}
+          </text>
+          <polygon points={`${x + w2 - 18},${y + h / 2 - 3} ${x + w2 - 8},${y + h / 2 - 3} ${x + w2 - 13},${y + h / 2 + 4}`}
+            fill={dimColor} />
+          <line x1={x + w2 - 24} y1={y + 2} x2={x + w2 - 24} y2={y + h - 2} stroke={borderColor} strokeWidth="0.75" />
+        </g>
+      );
+
+    case 'checkbox': {
+      const checked = w.checked ?? false;
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y + (h - 14) / 2} width={14} height={14}
+            fill={checked ? accentColor : fill} stroke={checked ? accentColor : borderColor} strokeWidth="1.5" rx="2" />
+          {checked && (
+            <polyline points={`${x + 3},${y + (h - 14) / 2 + 7} ${x + 6},${y + (h - 14) / 2 + 11} ${x + 11},${y + (h - 14) / 2 + 4}`}
+              fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" />
+          )}
+          <text x={x + 20} y={y + h / 2 + 4} fontSize="12" fill={textColor}>{label}</text>
+        </g>
+      );
+    }
+
+    case 'radio': {
+      const items = w.items?.length ? w.items : [label];
+      return (
+        <g key={w.id}>
+          {items.map((item, i) => (
+            <g key={i}>
+              <circle cx={x + 7} cy={y + 8 + i * 22} r="6" fill={fill} stroke={borderColor} strokeWidth="1.5" />
+              {i === 0 && <circle cx={x + 7} cy={y + 8 + i * 22} r="3" fill={accentColor} />}
+              <text x={x + 20} y={y + 8 + i * 22 + 4} fontSize="12" fill={textColor}>{item}</text>
+            </g>
+          ))}
+        </g>
+      );
+    }
+
+    case 'listbox': {
+      const items = w.items || [];
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fill} stroke={borderColor} strokeWidth="1" rx="2" />
+          {items.slice(0, Math.floor((h - 4) / 20)).map((item, i) => (
+            <g key={i}>
+              {i === 0 && (
+                <rect x={x + 1} y={y + 1 + i * 20} width={w2 - 2} height={20}
+                  fill={fillBlue} rx="1" />
+              )}
+              <text x={x + 6} y={y + 14 + i * 20} fontSize="11" fill={textColor}>{item}</text>
+            </g>
+          ))}
+          <rect x={x + w2 - 12} y={y} width={12} height={h} fill={fillLight} stroke={borderColor} strokeWidth="0.5" />
+          <text x={x + w2 - 6} y={y + 14} textAnchor="middle" fontSize="9" fill={dimColor}>▲</text>
+          <text x={x + w2 - 6} y={y + h - 4} textAnchor="middle" fontSize="9" fill={dimColor}>▼</text>
+        </g>
+      );
+    }
+
+    case 'table': {
+      const cols = w.columns || [];
+      const rows = w.rows || [];
+      const colW = cols.length > 0 ? Math.floor(w2 / cols.length) : w2;
+      const rowH = 22;
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fill} stroke={borderColor} strokeWidth="1" />
+          {cols.map((col, ci) => (
+            <g key={ci}>
+              <rect x={x + ci * colW} y={y} width={colW} height={rowH}
+                fill={fillBlue} stroke={borderColor} strokeWidth="0.5" />
+              <text x={x + ci * colW + colW / 2} y={y + rowH / 2 + 4}
+                textAnchor="middle" fontSize="10" fontWeight="600" fill={textColor}>{col}</text>
+            </g>
+          ))}
+          {rows.slice(0, Math.floor((h - rowH) / rowH)).map((row, ri) => (
+            row.map((cell, ci) => (
+              <g key={`${ri}-${ci}`}>
+                <rect x={x + ci * colW} y={y + rowH + ri * rowH} width={colW} height={rowH}
+                  fill={ri % 2 === 0 ? fill : fillLight} stroke={borderColor} strokeWidth="0.25" />
+                <text x={x + ci * colW + 4} y={y + rowH + ri * rowH + rowH / 2 + 4}
+                  fontSize="10" fill={textColor}>{cell}</text>
+              </g>
+            ))
+          ))}
+        </g>
+      );
+    }
+
+    case 'image':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fillLight} stroke={borderColor} strokeWidth="1" rx="2" />
+          <line x1={x} y1={y} x2={x + w2} y2={y + h} stroke={borderColor} strokeWidth="0.75" />
+          <line x1={x + w2} y1={y} x2={x} y2={y + h} stroke={borderColor} strokeWidth="0.75" />
+          <text x={x + w2 / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize="10" fill={dimColor}>{label || 'Image'}</text>
+        </g>
+      );
+
+    case 'progressbar': {
+      const pct = parseFloat(w.value || '0') / 100;
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fillLight} stroke={borderColor} strokeWidth="1" rx={h / 2} />
+          <rect x={x + 1} y={y + 1} width={Math.max(0, (w2 - 2) * pct)} height={h - 2}
+            fill={accentColor} rx={(h - 2) / 2} />
+          <text x={x + w2 / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize="10" fill={textColor}>
+            {label || `${Math.round(pct * 100)}%`}
+          </text>
+        </g>
+      );
+    }
+
+    case 'groupbox':
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y + 8} width={w2} height={h - 8}
+            fill="none" stroke={borderColor} strokeWidth="1.5" rx="4" />
+          <rect x={x + 10} y={y} width={label.length * 7 + 8} height={16}
+            fill={isDark ? '#111827' : 'white'} />
+          <text x={x + 14} y={y + 12} fontSize="11" fontWeight="600" fill={textColor}>{label}</text>
+        </g>
+      );
+
+    case 'annotation':
+      return null;
+
+    default:
+      return (
+        <g key={w.id}>
+          <rect x={x} y={y} width={w2} height={h} fill={fillLight} stroke={borderColor} strokeWidth="1" rx="2" />
+          <text x={x + w2 / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize="11" fill={textColor}>{label}</text>
+        </g>
+      );
+  }
+}
+
+function MockupSingleScreen({ screen, isDark }: { screen: MockupScreen; isDark: boolean }) {
+  const SCALE_W = 560;
+  const scale = SCALE_W / screen.width;
+  const scaledH = screen.height * scale;
+
+  const annotatedWidgets = screen.widgets.filter(w => w.annotation && w.type !== 'annotation');
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-2 mb-2">
+        <Monitor className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{screen.title}</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{screen.width} × {screen.height}px</span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <svg
+          width={SCALE_W + 240}
+          height={scaledH + 40}
+          viewBox={`0 0 ${SCALE_W + 240} ${scaledH + 40}`}
+          className="mx-auto"
+        >
+          <rect x="20" y="20" width={SCALE_W} height={scaledH}
+            fill={isDark ? '#0f172a' : '#f8fafc'}
+            stroke={isDark ? '#334155' : '#cbd5e1'}
+            strokeWidth="1.5"
+            rx="4" />
+
+          <g transform={`translate(20, 20) scale(${scale})`}>
+            {screen.widgets.map(w => renderWidget(w, isDark))}
+          </g>
+
+          {annotatedWidgets.map((w, i) => {
+            const sx = 20 + w.x * scale + w.width * scale / 2;
+            const sy = 20 + w.y * scale + w.height * scale / 2;
+            const ax = SCALE_W + 40 + 20;
+            const ay = 30 + i * 36;
+            const midX = (sx + ax) / 2;
+            return (
+              <g key={`ann-${w.id}`}>
+                <circle cx={sx} cy={sy} r="4" fill="#f59e0b" stroke="white" strokeWidth="1.5" />
+                <path d={`M${sx},${sy} C${midX},${sy} ${midX},${ay} ${ax},${ay}`}
+                  fill="none" stroke="#f59e0b" strokeWidth="1" strokeDasharray="4,2" opacity="0.8" />
+                <rect x={ax} y={ay - 11} width={180} height={22} rx="4"
+                  fill={isDark ? '#292524' : '#fffbeb'}
+                  stroke="#f59e0b" strokeWidth="1" />
+                <text x={ax + 6} y={ay + 4} fontSize="10" fill={isDark ? '#fde68a' : '#92400e'}>
+                  {w.annotation!.length > 26 ? w.annotation!.slice(0, 26) + '…' : w.annotation}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function MockupView({ screens }: { screens: MockupScreen[] }) {
+  const [activeScreen, setActiveScreen] = useState(0);
+  const isDark = typeof document !== 'undefined'
+    ? document.documentElement.classList.contains('dark')
+    : false;
+
+  if (!screens || screens.length === 0) {
+    return <div className="text-center text-gray-500 py-8">No mockup data available.</div>;
+  }
+
+  const current = screens[activeScreen] ?? screens[0];
+
+  return (
+    <div>
+      <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs text-gray-600 dark:text-gray-400">
+        AI-generated annotated GUI mockup based on the program's input/output structure. Annotations (amber dots) identify each widget's purpose.
+      </div>
+
+      {screens.length > 1 && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Screen:</span>
+          {screens.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveScreen(i)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                activeScreen === i
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-blue-400'
+              }`}
+            >
+              {s.title}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <MockupSingleScreen screen={current} isDark={isDark} />
+
+      <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-xs text-amber-700 dark:text-amber-300">
+        <strong>Annotated Mockup:</strong> This is a wireframe-style GUI prototype. Amber dots with dashed lines are annotations explaining each control's role in the program.
       </div>
     </div>
   );
