@@ -9,7 +9,7 @@ import { StudyMode } from './components/StudyMode';
 import { LoginModal } from './components/LoginModal';
 import { templates } from './data/templates';
 import { pseudocodeToCode, codeToPseudocode } from './utils/converters';
-import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode, validateOpenAIKey } from './utils/aiService';
+import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode } from './utils/aiService';
 import { exportToPDF, downloadFile } from './utils/pdfExport';
 
 type ApiKeyStatus = 'unchecked' | 'valid' | 'invalid';
@@ -47,8 +47,7 @@ function App() {
     setOpenAiKey(key);
 
     if (key) {
-      const valid = await validateOpenAIKey(key);
-      setApiKeyStatus(valid ? 'valid' : 'invalid');
+      setApiKeyStatus('valid');
     } else {
       setApiKeyStatus('invalid');
     }
