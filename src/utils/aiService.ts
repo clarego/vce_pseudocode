@@ -133,6 +133,127 @@ ${solution}`;
   }
 };
 
+export interface FlowchartNode {
+  id: string;
+  type: 'terminal' | 'process' | 'decision' | 'io' | 'predefined';
+  label: string;
+  yes?: string;
+  no?: string;
+  next?: string;
+}
+
+export interface DataDictionaryRow {
+  name: string;
+  dataType: string;
+  formatForDisplay: string;
+  sizeBytes: string;
+  sizeDisplay: string;
+  description: string;
+  example: string;
+  validation: string;
+}
+
+export interface IpoChart {
+  title: string;
+  inputs: string[];
+  process: string[];
+  outputs: string[];
+}
+
+export interface UcdActor {
+  id: string;
+  name: string;
+  side: 'left' | 'right';
+  parent?: string;
+}
+
+export interface UcdUseCase {
+  id: string;
+  label: string;
+}
+
+export interface UcdRelationship {
+  type: 'association' | 'include' | 'extend' | 'generalization';
+  from: string;
+  to: string;
+  label?: string;
+}
+
+export interface DesignTools {
+  flowchart: FlowchartNode[];
+  dataDictionary: DataDictionaryRow[];
+  ipoChart: IpoChart;
+  ucd: {
+    systemName: string;
+    actors: UcdActor[];
+    useCases: UcdUseCase[];
+    relationships: UcdRelationship[];
+  };
+}
+
+export const aiGenerateDesignTools = async (
+  apiKey: string,
+  code: string,
+  codeType: 'pseudocode' | 'python' | 'javascript'
+): Promise<DesignTools> => {
+  const systemPrompt = `You are a VCE Software Development teacher in Victoria, Australia.
+Analyse the given ${codeType} and produce all four VCAA-approved design tools in strict JSON.
+
+Return ONLY valid JSON matching this exact structure (no markdown, no extra text):
+{
+  "flowchart": [
+    {
+      "id": "1",
+      "type": "terminal|process|decision|io|predefined",
+      "label": "text shown in shape",
+      "next": "id of next node (for non-decision)",
+      "yes": "id of yes-branch node (decisions only)",
+      "no": "id of no-branch node (decisions only)"
+    }
+  ],
+  "dataDictionary": [
+    {
+      "name": "variableName",
+      "dataType": "Integer|Float|String|Boolean|Date|Array(Type)",
+      "formatForDisplay": "NNN.NN or XX..XX or DD/MM/YYYY etc",
+      "sizeBytes": "4 bytes",
+      "sizeDisplay": "6",
+      "description": "what this variable stores",
+      "example": "42",
+      "validation": "Must be > 0 or empty string if none"
+    }
+  ],
+  "ipoChart": {
+    "title": "Name of the main process",
+    "inputs": ["inputName (dataType)", ...],
+    "process": ["Step 1: plain English description", "Step 2: ...", ...],
+    "outputs": ["outputName (dataType)", ...]
+  },
+  "ucd": {
+    "systemName": "Name of the system",
+    "actors": [
+      { "id": "a1", "name": "User", "side": "left", "parent": "optional parent actor id for generalisation" }
+    ],
+    "useCases": [
+      { "id": "uc1", "label": "Verb Noun phrase" }
+    ],
+    "relationships": [
+      { "type": "association|include|extend|generalization", "from": "id", "to": "id" }
+    ]
+  }
+}
+
+VCAA Rules:
+- Flowchart: use terminal (oval) for START/END, process (rect) for computations/assignments, decision (diamond) for IF/loop conditions labelled Yes/No branches, io (parallelogram) for INPUT/OUTPUT, predefined (striped rect) for function calls. Flow goes top-to-bottom. The first node must be id "1" type "terminal" label "START".
+- Data Dictionary: list ALL variables/identifiers found. Use exact VCAA data types. Format: N=digit, X=char.
+- IPO chart: plain English process steps — NO pseudocode syntax. Inputs and outputs are DATA ITEMS only.
+- UCD: identify actors and use cases from the program's purpose. Use <<include>> for mandatory sub-functions, <<extend>> for optional/conditional. Actors outside boundary, use cases inside.`;
+
+  const raw = await callOpenAI(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
+  const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
+  return JSON.parse(cleaned) as DesignTools;
+};
+
 export const aiAutocomplete = async (
   apiKey: string,
   currentCode: string,

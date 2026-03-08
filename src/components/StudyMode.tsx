@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   BookOpen, ChevronRight, ChevronLeft, Code, Play, Check,
-  Lightbulb, Terminal, Eye, MessageSquare, Loader2, Sparkles, X
+  Lightbulb, Terminal, Eye, MessageSquare, Loader2, Sparkles, X, LayoutGrid
 } from 'lucide-react';
 import { studyContentData } from '../data/studyContent';
 import { pseudocodeToCode } from '../utils/converters';
@@ -10,9 +10,12 @@ import {
   aiCorrectAndConvert,
   aiTeacherFeedback,
   aiAutocomplete,
-  TeacherFeedback
+  aiGenerateDesignTools,
+  TeacherFeedback,
+  DesignTools as DesignToolsData,
 } from '../utils/aiService';
 import { ExerciseKeyboard } from './ExerciseKeyboard';
+import { DesignTools } from './DesignTools';
 
 interface StudyModeProps {
   openAiKey?: string | null;
@@ -34,6 +37,8 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
   const [isRunningPython, setIsRunningPython] = useState(false);
   const [isRunningJs, setIsRunningJs] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+  const [designToolsData, setDesignToolsData] = useState<DesignToolsData | null>(null);
+  const [isDesignToolsLoading, setIsDesignToolsLoading] = useState(false);
   const [teacherFeedback, setTeacherFeedback] = useState<TeacherFeedback | null>(null);
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
   const [autocompleteOptions, setAutocompleteOptions] = useState<string[]>([]);
@@ -66,6 +71,7 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
     setConvertedCode(null);
     setTeacherFeedback(null);
     setAutocompleteOptions([]);
+    setDesignToolsData(null);
   };
 
   const handleLessonChange = (index: number) => {
@@ -78,6 +84,7 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
     setConvertedCode(null);
     setTeacherFeedback(null);
     setAutocompleteOptions([]);
+    setDesignToolsData(null);
   };
 
   const autoIndentCode = (code: string): string => {
@@ -117,6 +124,20 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
     setExecutionResult(null);
     setTeacherFeedback(null);
     setAutocompleteOptions([]);
+    setDesignToolsData(null);
+  };
+
+  const handleGenerateDesignTools = async () => {
+    if (!hasAI || !openAiKey || !exerciseCode.trim()) return;
+    setIsDesignToolsLoading(true);
+    try {
+      const result = await aiGenerateDesignTools(openAiKey, exerciseCode, 'pseudocode');
+      setDesignToolsData(result);
+    } catch {
+      setDesignToolsData(null);
+    } finally {
+      setIsDesignToolsLoading(false);
+    }
   };
 
   const handleConvert = async (language: 'python' | 'javascript') => {
@@ -723,6 +744,17 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
                         {showSolution ? 'Hide' : 'Show'} Solution
                       </button>
                     )}
+
+                    {hasAI && (
+                      <button
+                        onClick={handleGenerateDesignTools}
+                        disabled={isDesignToolsLoading || !exerciseCode.trim()}
+                        className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                      >
+                        {isDesignToolsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutGrid className="w-4 h-4" />}
+                        Design Tools
+                      </button>
+                    )}
                   </div>
 
                   {executionResult && (
@@ -934,6 +966,14 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
                         )}
                       </div>
                     </div>
+                  )}
+
+                  {(designToolsData || isDesignToolsLoading) && (
+                    <DesignTools
+                      data={designToolsData!}
+                      isLoading={isDesignToolsLoading}
+                      onRegenerate={handleGenerateDesignTools}
+                    />
                   )}
                 </div>
               )}
