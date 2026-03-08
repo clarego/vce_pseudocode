@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2 } from 'lucide-react';
+import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal } from 'lucide-react';
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
 import { ConversionPanel } from './components/ConversionPanel';
@@ -15,12 +15,13 @@ import type { DesignTools as DesignToolsData } from './utils/aiService';
 import { exportToPDF, downloadFile } from './utils/pdfExport';
 
 type ApiKeyStatus = 'unchecked' | 'valid' | 'invalid';
+type Theme = 'dark' | 'light' | 'hacker';
 
 function App() {
   const [mode, setMode] = useState<'editor' | 'study'>('study');
   const [pseudocode, setPseudocode] = useState('BEGIN\n\nEND');
   const [cursorPosition, setCursorPosition] = useState(0);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [theme, setTheme] = useState<Theme>('dark');
   const [showConversion, setShowConversion] = useState(false);
   const [convertedCode, setConvertedCode] = useState('');
   const [convertedLanguage, setConvertedLanguage] = useState<'python' | 'javascript'>('python');
@@ -39,12 +40,9 @@ function App() {
   const [isDesignToolsLoading, setIsDesignToolsLoading] = useState(false);
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
+    document.documentElement.classList.toggle('dark', theme === 'dark' || theme === 'hacker');
+    document.documentElement.classList.toggle('hacker', theme === 'hacker');
+  }, [theme]);
 
   const handleLoginSuccess = async (key: string | null, username: string) => {
     setIsLoggedIn(true);
@@ -188,8 +186,8 @@ function App() {
     setShowConversion(false);
   };
 
-  const handleToggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
+  const cycleTheme = () => {
+    setTheme(t => t === 'light' ? 'dark' : t === 'dark' ? 'hacker' : 'light');
   };
 
   const handleImportCode = async (code: string, language: 'python' | 'javascript') => {
@@ -251,25 +249,40 @@ function App() {
       ? 'text-red-400'
       : 'text-gray-400';
 
+  const themeIcon = theme === 'light' ? <Sun className="w-4 h-4" /> : theme === 'dark' ? <Moon className="w-4 h-4" /> : <Terminal className="w-4 h-4" />;
+  const themeLabel = theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'Hacker';
+  const themeButtonClass = theme === 'hacker'
+    ? 'flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/40 transition-colors text-sm font-medium'
+    : 'flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-colors text-sm font-medium';
+
   return (
     <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
-      <header className="bg-gradient-to-r from-blue-600 to-teal-600 text-white p-6 shadow-lg">
+      <header className={`text-white p-6 shadow-lg ${theme === 'hacker' ? 'bg-black border-b border-green-500/40' : 'bg-gradient-to-r from-blue-600 to-teal-600'}`}>
         <div className="flex items-center justify-between max-w-[2000px] mx-auto">
           <div className="flex items-center gap-3">
-            <Code2 className="w-8 h-8" />
+            <Code2 className={`w-8 h-8 ${theme === 'hacker' ? 'text-green-400' : ''}`} />
             <div>
-              <h1 className="text-2xl font-bold">VCE Pseudocode Learning Platform</h1>
-              <p className="text-blue-100 text-sm">Victorian Curriculum Standards</p>
+              <h1 className={`text-2xl font-bold ${theme === 'hacker' ? 'text-green-400 font-mono' : ''}`}>VCE Pseudocode Learning Platform</h1>
+              <p className={`text-sm ${theme === 'hacker' ? 'text-green-600 font-mono' : 'text-blue-100'}`}>Victorian Curriculum Standards</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex bg-white/10 rounded-lg p-1">
+            <button
+              onClick={cycleTheme}
+              className={themeButtonClass}
+              title={`Theme: ${themeLabel} (click to cycle)`}
+            >
+              {themeIcon}
+              {themeLabel}
+            </button>
+
+            <div className={`flex rounded-lg p-1 ${theme === 'hacker' ? 'bg-green-500/10 border border-green-500/30' : 'bg-white/10'}`}>
               <button
                 onClick={() => setMode('study')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                   mode === 'study'
-                    ? 'bg-white text-blue-600 font-semibold'
-                    : 'text-white hover:bg-white/10'
+                    ? theme === 'hacker' ? 'bg-green-500/20 text-green-300 font-semibold border border-green-500/40' : 'bg-white text-blue-600 font-semibold'
+                    : theme === 'hacker' ? 'text-green-400 hover:bg-green-500/10' : 'text-white hover:bg-white/10'
                 }`}
               >
                 <BookOpen className="w-4 h-4" />
@@ -279,8 +292,8 @@ function App() {
                 onClick={() => setMode('editor')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                   mode === 'editor'
-                    ? 'bg-white text-blue-600 font-semibold'
-                    : 'text-white hover:bg-white/10'
+                    ? theme === 'hacker' ? 'bg-green-500/20 text-green-300 font-semibold border border-green-500/40' : 'bg-white text-blue-600 font-semibold'
+                    : theme === 'hacker' ? 'text-green-400 hover:bg-green-500/10' : 'text-white hover:bg-white/10'
                 }`}
               >
                 <Edit className="w-4 h-4" />
@@ -348,8 +361,6 @@ function App() {
             onDownloadPython={handleDownloadPython}
             onDownloadJavaScript={handleDownloadJavaScript}
             onDownloadPDF={handleDownloadPDF}
-            onToggleTheme={handleToggleTheme}
-            isDarkMode={isDarkMode}
             onTemplateSelect={handleTemplateSelect}
             templates={templates}
             onShowHelp={() => setShowHelp(true)}

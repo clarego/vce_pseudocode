@@ -3,8 +3,6 @@ import {
   Download,
   Upload,
   Trash2,
-  Sun,
-  Moon,
   FileText,
   HelpCircle,
   ChevronDown,
@@ -22,8 +20,6 @@ interface ToolbarProps {
   onDownloadPython: () => void;
   onDownloadJavaScript: () => void;
   onDownloadPDF: () => void;
-  onToggleTheme: () => void;
-  isDarkMode: boolean;
   onTemplateSelect: (code: string) => void;
   templates: Array<{ name: string; description: string; code: string }>;
   onShowHelp: () => void;
@@ -42,8 +38,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onDownloadPython,
   onDownloadJavaScript,
   onDownloadPDF,
-  onToggleTheme,
-  isDarkMode,
   onTemplateSelect,
   templates,
   onShowHelp,
@@ -272,14 +266,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             title="Help"
           >
             <HelpCircle className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={onToggleTheme}
-            className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
-            title="Toggle Theme"
-          >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
         </div>
       </div>

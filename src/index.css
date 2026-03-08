@@ -1,3 +1,52 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.hacker * {
+  font-family: 'Courier New', Courier, monospace !important;
+}
+
+.hacker body,
+.hacker #root {
+  background-color: #000 !important;
+  color: #00ff41 !important;
+}
+
+.hacker .bg-white,
+.hacker .bg-gray-50,
+.hacker .bg-gray-100 {
+  background-color: #0a0a0a !important;
+}
+
+.hacker .bg-gray-800,
+.hacker .bg-gray-900 {
+  background-color: #000 !important;
+}
+
+.hacker .text-gray-800,
+.hacker .text-gray-900,
+.hacker .text-gray-700,
+.hacker .text-gray-600,
+.hacker .text-gray-500,
+.hacker .text-gray-400,
+.hacker .text-gray-300,
+.hacker .text-gray-200 {
+  color: #00ff41 !important;
+}
+
+.hacker .border-gray-200,
+.hacker .border-gray-300,
+.hacker .border-gray-700 {
+  border-color: #00ff41 !important;
+  opacity: 0.4;
+}
+
+.hacker header {
+  background: #000 !important;
+  border-bottom: 1px solid #00ff41 !important;
+}
+
+.hacker footer {
+  background: #000 !important;
+  border-top: 1px solid #00ff41 !important;
+}
