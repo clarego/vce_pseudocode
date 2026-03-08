@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code2, BookOpen, Edit, Settings, Loader2 } from 'lucide-react';
+import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2 } from 'lucide-react';
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
 import { ConversionPanel } from './components/ConversionPanel';
