@@ -341,7 +341,7 @@ OUTPUT "Hello, " + name + "! You are " + age + " years old."
 
 \`\`\`
 IF condition THEN
-  [do something]
+    [do something]
 END IF
 \`\`\`
 
@@ -356,7 +356,7 @@ END IF
 \`\`\`
 INPUT age
 IF age ≥ 18 THEN
-  OUTPUT "You are an adult"
+    OUTPUT "You are an adult"
 END IF
 \`\`\`
 
@@ -375,7 +375,7 @@ Use AND, OR, NOT to combine conditions:
 
 \`\`\`
 IF age ≥ 18 AND age < 65 THEN
-  OUTPUT "Working age"
+    OUTPUT "Working age"
 END IF
 \`\`\``,
       pseudocode_example: 'BEGIN\n    INPUT age\n    IF age ≥ 18 THEN\n        OUTPUT "Adult"\n    END IF\nEND'
@@ -395,9 +395,9 @@ When you have two possible paths:
 
 \`\`\`
 IF condition THEN
-  [do this if true]
+    [do this if true]
 ELSE
-  [do this if false]
+    [do this if false]
 END IF
 \`\`\`
 
@@ -406,9 +406,9 @@ END IF
 \`\`\`
 INPUT age
 IF age ≥ 18 THEN
-  OUTPUT "Adult"
+    OUTPUT "Adult"
 ELSE
-  OUTPUT "Minor"
+    OUTPUT "Minor"
 END IF
 \`\`\`
 
@@ -418,13 +418,13 @@ When you have more than two possibilities:
 
 \`\`\`
 IF condition1 THEN
-  [first option]
+    [first option]
 ELSE IF condition2 THEN
-  [second option]
+    [second option]
 ELSE IF condition3 THEN
-  [third option]
+    [third option]
 ELSE
-  [default option]
+    [default option]
 END IF
 \`\`\`
 
@@ -433,13 +433,13 @@ END IF
 \`\`\`
 INPUT score
 IF score ≥ 90 THEN
-  OUTPUT "A"
+    OUTPUT "A"
 ELSE IF score ≥ 80 THEN
-  OUTPUT "B"
+    OUTPUT "B"
 ELSE IF score ≥ 70 THEN
-  OUTPUT "C"
+    OUTPUT "C"
 ELSE
-  OUTPUT "F"
+    OUTPUT "F"
 END IF
 \`\`\`
 
@@ -459,7 +459,7 @@ A **FOR loop** repeats code a specific number of times. Use it when you know exa
 
 \`\`\`
 FOR variable FROM start TO end
-  [code to repeat]
+    [code to repeat]
 END FOR
 \`\`\`
 
@@ -474,7 +474,7 @@ END FOR
 
 \`\`\`
 FOR i FROM 1 TO 5
-  OUTPUT i
+    OUTPUT i
 END FOR
 \`\`\`
 
@@ -485,8 +485,8 @@ This outputs: 1, 2, 3, 4, 5
 \`\`\`
 INPUT number
 FOR i FROM 1 TO 10
-  result ← number × i
-  OUTPUT number + " × " + i + " = " + result
+    result ← number × i
+    OUTPUT number + " × " + i + " = " + result
 END FOR
 \`\`\`
 
@@ -511,7 +511,7 @@ A **WHILE loop** repeats code as long as a condition is true. Use it when you do
 
 \`\`\`
 WHILE condition
-  [code to repeat]
+    [code to repeat]
 END WHILE
 \`\`\`
 
@@ -527,8 +527,8 @@ END WHILE
 \`\`\`
 count ← 1
 WHILE count ≤ 10
-  OUTPUT count
-  count ← count + 1
+    OUTPUT count
+    count ← count + 1
 END WHILE
 \`\`\`
 
@@ -540,7 +540,7 @@ The condition must eventually become false, or the loop runs forever:
 \`\`\`
 count ← 1
 WHILE count ≤ 10
-  OUTPUT count
+    OUTPUT count
 END WHILE
 \`\`\`
 count never changes, so the loop never ends!
@@ -549,8 +549,8 @@ count never changes, so the loop never ends!
 \`\`\`
 count ← 1
 WHILE count ≤ 10
-  OUTPUT count
-  count ← count + 1
+    OUTPUT count
+    count ← count + 1
 END WHILE
 \`\`\`
 
@@ -590,8 +590,8 @@ OUTPUT "Please enter your details"
 You can write a function once and call it whenever needed:
 \`\`\`
 DEFINE showWelcome()
-  OUTPUT "Welcome!"
-  OUTPUT "Please enter your details"
+    OUTPUT "Welcome!"
+    OUTPUT "Please enter your details"
 END
 
 showWelcome()
@@ -620,7 +620,7 @@ Use the **DEFINE** keyword to create a function:
 
 \`\`\`
 DEFINE functionName()
-  [code to execute]
+    [code to execute]
 END
 \`\`\`
 
@@ -628,9 +628,9 @@ END
 
 \`\`\`
 DEFINE printBanner()
-  OUTPUT "=================="
-  OUTPUT "  WELCOME USER   "
-  OUTPUT "=================="
+    OUTPUT "=================="
+    OUTPUT "  WELCOME USER   "
+    OUTPUT "=================="
 END
 \`\`\`
 
@@ -648,14 +648,14 @@ This executes all the code inside the function.
 
 \`\`\`
 BEGIN
-  DEFINE sayHello()
-    OUTPUT "Hello!"
-    OUTPUT "How are you today?"
-  END
+    DEFINE sayHello()
+        OUTPUT "Hello!"
+        OUTPUT "How are you today?"
+    END
 
-  sayHello()
-  OUTPUT "This is after the function"
-  sayHello()
+    sayHello()
+    OUTPUT "This is after the function"
+    sayHello()
 END
 \`\`\`
 
@@ -691,7 +691,7 @@ How are you today?
 
 \`\`\`
 DEFINE functionName(parameter1, parameter2)
-  [use parameters here]
+    [use parameters here]
 END
 \`\`\`
 
@@ -699,8 +699,8 @@ END
 
 \`\`\`
 DEFINE greet(name)
-  OUTPUT "Hello, " + name + "!"
-  OUTPUT "Welcome to the program"
+    OUTPUT "Hello, " + name + "!"
+    OUTPUT "Welcome to the program"
 END
 
 greet("Alice")
@@ -721,8 +721,8 @@ Functions can accept multiple parameters:
 
 \`\`\`
 DEFINE calculateArea(length, width)
-  area ← length × width
-  OUTPUT "Area: " + area
+    area ← length × width
+    OUTPUT "Area: " + area
 END
 
 calculateArea(5, 3)
@@ -739,13 +739,13 @@ calculateArea(10, 7)
 
 \`\`\`
 DEFINE welcomeUser(name, age)
-  OUTPUT "Welcome, " + name + "!"
-  OUTPUT "You are " + age + " years old"
-  IF age ≥ 18 THEN
-    OUTPUT "You are an adult"
-  ELSE
-    OUTPUT "You are a minor"
-  END IF
+    OUTPUT "Welcome, " + name + "!"
+    OUTPUT "You are " + age + " years old"
+    IF age ≥ 18 THEN
+        OUTPUT "You are an adult"
+    ELSE
+        OUTPUT "You are a minor"
+    END IF
 END
 
 INPUT userName
@@ -769,8 +769,8 @@ Functions can send values back to where they were called using the **RETURN** ke
 
 \`\`\`
 DEFINE functionName(parameters)
-  [calculations]
-  RETURN value
+    [calculations]
+    RETURN value
 END
 \`\`\`
 
@@ -778,8 +778,8 @@ END
 
 \`\`\`
 DEFINE square(number)
-  result ← number × number
-  RETURN result
+    result ← number × number
+    RETURN result
 END
 
 x ← square(5)
@@ -797,7 +797,7 @@ You can:
 
 \`\`\`
 DEFINE add(a, b)
-  RETURN a + b
+    RETURN a + b
 END
 
 total ← add(10, 5)
@@ -806,7 +806,7 @@ OUTPUT total
 OUTPUT add(3, 7)
 
 IF add(5, 5) = 10 THEN
-  OUTPUT "Math works!"
+    OUTPUT "Math works!"
 END IF
 \`\`\`
 
@@ -818,11 +818,11 @@ END IF
 
 \`\`\`
 DEFINE calculate(x, y)
-  OUTPUT x + y        # Displays, but doesn't return
+    OUTPUT x + y        # Displays, but doesn't return
 END
 
 DEFINE calculateReturn(x, y)
-  RETURN x + y        # Returns value for use
+    RETURN x + y        # Returns value for use
 END
 
 calculate(2, 3)           # Shows 5, but can't use result
@@ -833,14 +833,14 @@ result ← calculateReturn(2, 3)  # Stores 5 in result
 
 \`\`\`
 DEFINE calculateDiscount(price, percentage)
-  discount ← price × (percentage / 100)
-  RETURN discount
+    discount ← price × (percentage / 100)
+    RETURN discount
 END
 
 DEFINE finalPrice(price, discountPercent)
-  discount ← calculateDiscount(price, discountPercent)
-  final ← price - discount
-  RETURN final
+    discount ← calculateDiscount(price, discountPercent)
+    final ← price - discount
+    RETURN final
 END
 
 originalPrice ← 100
