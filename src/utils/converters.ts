@@ -16,8 +16,12 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
     const line = lines[i];
     const trimmed = line.trim();
 
-    if (trimmed.startsWith('INPUT ')) {
-      const variable = trimmed.substring(6).trim();
+    const inputVarMatch = trimmed.match(/^(\w+)\s*←\s*INPUT\s*\(/i);
+    const inputKeywordMatch = trimmed.startsWith('INPUT ');
+    const inputVariable = inputVarMatch ? inputVarMatch[1] : inputKeywordMatch ? trimmed.substring(6).trim() : null;
+
+    if (inputVariable) {
+      const variable = inputVariable;
 
       for (let j = i + 1; j < lines.length; j++) {
         const nextLine = lines[j].trim();
@@ -216,6 +220,26 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
         convertedLines.push(getIndent(indentLevel) + `return ${value}`);
       } else {
         convertedLines.push(getIndent(indentLevel) + `return ${value};`);
+      }
+      continue;
+    }
+
+    const inputAssignMatch = trimmed.match(/^(\w+)\s*←\s*INPUT\s*\((.*?)\)\s*$/i);
+    if (inputAssignMatch) {
+      const [, variable, prompt] = inputAssignMatch;
+      const promptStr = prompt.trim() || `"Enter ${variable}: "`;
+      if (language === 'python') {
+        if (numericVariables.has(variable)) {
+          convertedLines.push(getIndent(indentLevel) + `${variable} = int(input(${promptStr}))`);
+        } else {
+          convertedLines.push(getIndent(indentLevel) + `${variable} = input(${promptStr})`);
+        }
+      } else {
+        if (numericVariables.has(variable)) {
+          convertedLines.push(getIndent(indentLevel) + `${variable} = parseInt(prompt(${promptStr}));`);
+        } else {
+          convertedLines.push(getIndent(indentLevel) + `${variable} = prompt(${promptStr});`);
+        }
       }
       continue;
     }
