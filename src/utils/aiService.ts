@@ -313,7 +313,13 @@ VCAA Rules:
 - Flowchart: terminal (oval) for START/END, process (rect) for computations, decision (diamond) for IF/loops with Yes/No branches, io (parallelogram) for INPUT/OUTPUT, predefined (striped rect) for function calls. First node id "1" type "terminal" label "START".
 - Data Dictionary: ALL variables. VCAA data types. N=digit, X=char format notation.
 - IPO chart: plain English process steps ONLY — no pseudocode syntax. Data items only in inputs/outputs.
-- UCD: actors + use cases from program purpose. <<include>> for mandatory sub-functions, <<extend>> for optional.
+- UCD (strict UML 2.5): Identify actors (people/systems that interact with the system) and use cases (system functions).
+  - association: solid line, no arrowhead, between actor and use case. Use "from": actorId, "to": useCaseId.
+  - include: dashed arrow FROM base use case TO included use case (the base CALLS the included; it is mandatory). Use "from": baseUseCaseId, "to": includedUseCaseId, "type": "include".
+  - extend: dashed arrow FROM extending use case TO base use case (the optional/conditional behavior points AT the base it extends). Use "from": extendingUseCaseId, "to": baseUseCaseId, "type": "extend".
+  - generalization: solid line with hollow triangle FROM child TO parent. Use "from": childId, "to": parentId, "type": "generalization".
+  - Primary actors (initiate actions) go on the left (side: "left"). Secondary actors (support/respond) go on the right (side: "right").
+  - NEVER put actors inside the system boundary. System name goes INSIDE the rectangle at the top.
 - DFD Level 0 (Context Diagram): EXACTLY ONE process element (the system), external entities only, NO data stores, data flows named in snake_case. The single process id must be "sys".
 - DFD Level 1: numbered processes (label = "1 Name", "2 Name" etc), same external entities as Level 0, data stores appear (label = "D1 Name", "D2 Name"), all Level 0 data flows preserved. External entities CANNOT connect directly to data stores.
 - DFD Level 2: decomposes the FIRST complex process from Level 1, sub-processes numbered e.g. "1.1 Name", "1.2 Name". Balances with parent process flows.

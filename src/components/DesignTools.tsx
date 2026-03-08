@@ -411,14 +411,22 @@ function IpoChartView({ chart }: { chart: IpoChart }) {
 }
 
 const ACTOR_W = 80;
-const ACTOR_H = 100;
-const UC_W = 160;
-const UC_H = 50;
-const SYSTEM_PAD = 40;
+const ACTOR_BODY_TOP = 22;
+const ACTOR_BODY_MID = 35;
+const ACTOR_BODY_BOT = 50;
+const ACTOR_LEGS_BOT = 66;
+const ACTOR_LABEL_Y = 82;
+const ACTOR_TOTAL_H = 94;
+const UC_W = 170;
+const UC_H = 52;
+const UC_COL_GAP = 24;
+const SYSTEM_PAD_X = 36;
+const SYSTEM_PAD_Y = 48;
+const SYSTEM_TITLE_H = 28;
 
 interface UcdLayout {
-  actors: (UcdActor & { x: number; y: number })[];
-  useCases: (UcdUseCase & { x: number; y: number })[];
+  actors: (UcdActor & { cx: number; cy: number })[];
+  useCases: (UcdUseCase & { cx: number; cy: number })[];
   systemX: number;
   systemY: number;
   systemW: number;
@@ -432,36 +440,48 @@ function layoutUcd(ucd: DesignToolsData['ucd']): UcdLayout {
   const rightActors = ucd.actors.filter(a => a.side === 'right');
   const ucCount = ucd.useCases.length;
 
-  const systemH = Math.max(ucCount * (UC_H + 30) + SYSTEM_PAD * 2, 200);
-  const systemW = Math.max(UC_W + SYSTEM_PAD * 2 + 80, 260);
+  const ucCols = ucCount <= 3 ? 1 : ucCount <= 6 ? 2 : 3;
+  const ucRows = Math.ceil(ucCount / ucCols);
 
-  const leftX = 50;
-  const systemX = leftX + ACTOR_W + 60;
-  const rightX = systemX + systemW + 60;
-  const systemY = 60;
-  const totalW = rightX + ACTOR_W + 60;
+  const innerW = ucCols * UC_W + (ucCols - 1) * UC_COL_GAP;
+  const innerH = ucRows * UC_H + (ucRows - 1) * UC_COL_GAP;
+  const systemW = innerW + SYSTEM_PAD_X * 2;
+  const systemH = innerH + SYSTEM_PAD_Y * 2 + SYSTEM_TITLE_H;
 
-  const placeActors = (actors: UcdActor[], baseX: number) =>
-    actors.map((a, i) => ({
+  const maxLeftH = Math.max(leftActors.length * (ACTOR_TOTAL_H + 16), systemH);
+  const maxRightH = Math.max(rightActors.length * (ACTOR_TOTAL_H + 16), systemH);
+  const totalH = Math.max(maxLeftH, maxRightH, systemH) + 80;
+
+  const systemY = (totalH - systemH) / 2;
+  const systemX = 80 + ACTOR_W / 2 + 50;
+  const rightX = systemX + systemW + 50;
+  const totalW = rightX + ACTOR_W + 80;
+
+  const placeActors = (actors: UcdActor[], baseX: number) => {
+    const totalGroupH = actors.length * ACTOR_TOTAL_H + (actors.length - 1) * 16;
+    const startY = (totalH - totalGroupH) / 2;
+    return actors.map((a, i) => ({
       ...a,
-      x: baseX,
-      y: systemY + SYSTEM_PAD + i * (ACTOR_H + 20),
+      cx: baseX,
+      cy: startY + i * (ACTOR_TOTAL_H + 16) + 12,
     }));
+  };
 
-  const placedLeft = placeActors(leftActors, leftX);
-  const placedRight = placeActors(rightActors, rightX);
+  const placedLeft = placeActors(leftActors, 80 + ACTOR_W / 2);
+  const placedRight = placeActors(rightActors, rightX + ACTOR_W / 2);
 
-  const placedUseCases = ucd.useCases.map((uc, i) => ({
-    ...uc,
-    x: systemX + SYSTEM_PAD + 20,
-    y: systemY + SYSTEM_PAD + i * (UC_H + 28),
-  }));
+  const ucStartX = systemX + SYSTEM_PAD_X;
+  const ucStartY = systemY + SYSTEM_TITLE_H + SYSTEM_PAD_Y;
 
-  const totalH = Math.max(
-    systemY + systemH + 60,
-    systemY + leftActors.length * (ACTOR_H + 20) + 60,
-    systemY + rightActors.length * (ACTOR_H + 20) + 60
-  );
+  const placedUseCases = ucd.useCases.map((uc, i) => {
+    const col = i % ucCols;
+    const row = Math.floor(i / ucCols);
+    return {
+      ...uc,
+      cx: ucStartX + col * (UC_W + UC_COL_GAP) + UC_W / 2,
+      cy: ucStartY + row * (UC_H + UC_COL_GAP) + UC_H / 2,
+    };
+  });
 
   return {
     actors: [...placedLeft, ...placedRight],
@@ -484,127 +504,204 @@ function UcdView({ ucd }: { ucd: DesignToolsData['ucd'] }) {
   const actorMap = new Map(layout.actors.map(a => [a.id, a]));
   const ucMap = new Map(layout.useCases.map(u => [u.id, u]));
 
-  const getCenter = (id: string): { x: number; y: number } | null => {
+  const getCenter = (id: string): { x: number; y: number; isActor: boolean } | null => {
     const a = actorMap.get(id);
-    if (a) return { x: a.x + ACTOR_W / 2, y: a.y + 16 };
+    if (a) return { x: a.cx, y: a.cy + ACTOR_BODY_MID, isActor: true };
     const u = ucMap.get(id);
-    if (u) return { x: u.x + UC_W / 2, y: u.y + UC_H / 2 };
+    if (u) return { x: u.cx, y: u.cy, isActor: false };
     return null;
   };
 
+  const getEdgePoint = (center: { x: number; y: number; isActor: boolean }, toward: { x: number; y: number }): { x: number; y: number } => {
+    const dx = toward.x - center.x;
+    const dy = toward.y - center.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    if (center.isActor) {
+      return { x: center.x + ux * 10, y: center.y + uy * 10 };
+    }
+    const rx = UC_W / 2, ry = UC_H / 2;
+    const t = Math.min(Math.abs(rx / (ux || 0.001)), Math.abs(ry / (uy || 0.001)));
+    return { x: center.x + ux * t, y: center.y + uy * t };
+  };
+
+  const DARK_STROKE = '#6b7280';
+
   const relationshipLines = ucd.relationships.map((rel, i) => {
-    const from = getCenter(rel.from);
-    const to = getCenter(rel.to);
-    if (!from || !to) return null;
+    const fromC = getCenter(rel.from);
+    const toC = getCenter(rel.to);
+    if (!fromC || !toC) return null;
+
+    const fromPt = getEdgePoint(fromC, toC);
+    const toPt = getEdgePoint(toC, fromC);
+
+    const dx = toPt.x - fromPt.x;
+    const dy = toPt.y - fromPt.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const midX = (fromPt.x + toPt.x) / 2;
+    const midY = (fromPt.y + toPt.y) / 2;
 
     if (rel.type === 'association') {
       return (
-        <line key={i} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-          stroke="currentColor" strokeWidth="1.5" className="text-gray-500 dark:text-gray-400" />
+        <line key={i}
+          x1={fromPt.x} y1={fromPt.y} x2={toPt.x} y2={toPt.y}
+          stroke={DARK_STROKE} strokeWidth="1.5" />
       );
     }
 
-    const midX = (from.x + to.x) / 2;
-    const midY = (from.y + to.y) / 2;
-    const label = rel.type === 'include' ? '«include»' : rel.type === 'extend' ? '«extend»' : '';
-    const arrowX = to.x;
-    const arrowY = to.y;
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const ux = dx / len, uy = dy / len;
-
     if (rel.type === 'generalization') {
+      const ax = toPt.x, ay = toPt.y;
+      const triSize = 13;
       return (
         <g key={i}>
-          <line x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-            stroke="currentColor" strokeWidth="1.5" className="text-gray-600 dark:text-gray-400" />
+          <line x1={fromPt.x} y1={fromPt.y} x2={toPt.x} y2={toPt.y}
+            stroke={DARK_STROKE} strokeWidth="1.5" />
           <polygon
-            points={`${arrowX},${arrowY} ${arrowX - ux * 12 - uy * 7},${arrowY - uy * 12 + ux * 7} ${arrowX - ux * 12 + uy * 7},${arrowY - uy * 12 - ux * 7}`}
-            fill="white" stroke="currentColor" strokeWidth="1.5" className="dark:fill-gray-900 text-gray-600 dark:text-gray-400"
+            points={`${ax},${ay} ${ax - ux * triSize - uy * 7},${ay - uy * triSize + ux * 7} ${ax - ux * triSize + uy * 7},${ay - uy * triSize - ux * 7}`}
+            fill="white" stroke={DARK_STROKE} strokeWidth="1.5"
           />
         </g>
       );
     }
 
+    const label = rel.type === 'include' ? '«include»' : rel.type === 'extend' ? '«extend»' : '';
+    const arrowTipX = toPt.x, arrowTipY = toPt.y;
+    const arrowSize = 10;
+
     return (
       <g key={i}>
-        <line x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-          stroke="currentColor" strokeWidth="1.5" strokeDasharray="6,3"
-          className="text-gray-500 dark:text-gray-400" />
+        <line x1={fromPt.x} y1={fromPt.y} x2={arrowTipX - ux * arrowSize} y2={arrowTipY - uy * arrowSize}
+          stroke={DARK_STROKE} strokeWidth="1.5" strokeDasharray="6,3" />
         <polygon
-          points={`${arrowX},${arrowY} ${arrowX - ux * 10 - uy * 5},${arrowY - uy * 10 + ux * 5} ${arrowX - ux * 10 + uy * 5},${arrowY - uy * 10 - ux * 5}`}
-          fill="currentColor" className="text-gray-500 dark:text-gray-400"
+          points={`${arrowTipX},${arrowTipY} ${arrowTipX - ux * arrowSize - uy * 5},${arrowTipY - uy * arrowSize + ux * 5} ${arrowTipX - ux * arrowSize + uy * 5},${arrowTipY - uy * arrowSize - ux * 5}`}
+          fill="white" stroke={DARK_STROKE} strokeWidth="1.5"
         />
         {label && (
-          <text x={midX} y={midY - 5} textAnchor="middle" fontSize="10"
-            fontStyle="italic" className="fill-gray-500 dark:fill-gray-400">{label}</text>
+          <text x={midX} y={midY - 6}
+            textAnchor="middle" fontSize="10" fontStyle="italic"
+            fill={DARK_STROKE}>{label}</text>
         )}
       </g>
     );
   });
 
+  const legend = [
+    {
+      el: (
+        <svg width="30" height="16" viewBox="0 0 30 16">
+          <line x1="0" y1="8" x2="30" y2="8" stroke="#6b7280" strokeWidth="1.5" />
+        </svg>
+      ),
+      label: 'Association',
+    },
+    {
+      el: (
+        <svg width="40" height="16" viewBox="0 0 40 16">
+          <line x1="0" y1="8" x2="26" y2="8" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="4,2" />
+          <polygon points="40,8 27,3 27,13" fill="white" stroke="#6b7280" strokeWidth="1.5" />
+        </svg>
+      ),
+      label: '«include» / «extend»',
+    },
+    {
+      el: (
+        <svg width="40" height="16" viewBox="0 0 40 16">
+          <line x1="0" y1="8" x2="26" y2="8" stroke="#6b7280" strokeWidth="1.5" />
+          <polygon points="40,8 27,3 27,13" fill="white" stroke="#6b7280" strokeWidth="1.5" />
+        </svg>
+      ),
+      label: 'Generalization',
+    },
+  ];
+
   return (
-    <div className="overflow-x-auto">
-      <svg
-        width={layout.totalW}
-        height={layout.totalH}
-        viewBox={`0 0 ${layout.totalW} ${layout.totalH}`}
-        className="text-gray-800 dark:text-gray-100 mx-auto"
-      >
-        <rect
-          x={layout.systemX} y={layout.systemY}
-          width={layout.systemW} height={layout.systemH}
-          fill="none" stroke="currentColor" strokeWidth="2"
-          className="text-gray-600 dark:text-gray-400"
-        />
-        <text x={layout.systemX + layout.systemW / 2} y={layout.systemY - 10}
-          textAnchor="middle" fontSize="13" fontWeight="bold"
-          className="fill-gray-800 dark:fill-gray-100">
-          {ucd.systemName}
-        </text>
-
-        {relationshipLines}
-
-        {layout.actors.map(actor => {
-          const cx = actor.x + ACTOR_W / 2;
-          return (
-            <g key={actor.id}>
-              <circle cx={cx} cy={actor.y + 12} r={10}
-                fill="none" stroke="currentColor" strokeWidth="1.5"
-                className="text-gray-700 dark:text-gray-300" />
-              <line x1={cx} y1={actor.y + 22} x2={cx} y2={actor.y + 48}
-                stroke="currentColor" strokeWidth="1.5" className="text-gray-700 dark:text-gray-300" />
-              <line x1={cx - 16} y1={actor.y + 34} x2={cx + 16} y2={actor.y + 34}
-                stroke="currentColor" strokeWidth="1.5" className="text-gray-700 dark:text-gray-300" />
-              <line x1={cx} y1={actor.y + 48} x2={cx - 12} y2={actor.y + 64}
-                stroke="currentColor" strokeWidth="1.5" className="text-gray-700 dark:text-gray-300" />
-              <line x1={cx} y1={actor.y + 48} x2={cx + 12} y2={actor.y + 64}
-                stroke="currentColor" strokeWidth="1.5" className="text-gray-700 dark:text-gray-300" />
-              <text x={cx} y={actor.y + 80} textAnchor="middle" fontSize="11" fontWeight="500"
-                className="fill-gray-800 dark:fill-gray-100">{actor.name}</text>
-            </g>
-          );
-        })}
-
-        {layout.useCases.map(uc => (
-          <g key={uc.id}>
-            <ellipse
-              cx={uc.x + UC_W / 2} cy={uc.y + UC_H / 2}
-              rx={UC_W / 2} ry={UC_H / 2}
-              className="fill-sky-50 dark:fill-sky-900/40 stroke-sky-400 dark:stroke-sky-600"
-              strokeWidth="1.5"
-            />
-            <foreignObject x={uc.x + 8} y={uc.y + 8} width={UC_W - 16} height={UC_H - 16}>
-              <div
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', fontSize: '11px', lineHeight: '1.2' }}
-              >
-                {uc.label}
-              </div>
-            </foreignObject>
-          </g>
+    <div>
+      <div className="flex flex-wrap gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs">
+        {legend.map((l, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {l.el}
+            <span className="text-gray-600 dark:text-gray-400">{l.label}</span>
+          </div>
         ))}
-      </svg>
+        <div className="flex items-center gap-2 ml-4 text-gray-500 dark:text-gray-400 italic">
+          «include»: base→included (mandatory) &nbsp;|&nbsp; «extend»: extension→base (optional)
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <svg
+          width={layout.totalW}
+          height={layout.totalH}
+          viewBox={`0 0 ${layout.totalW} ${layout.totalH}`}
+          className="mx-auto"
+        >
+          <rect
+            x={layout.systemX} y={layout.systemY}
+            width={layout.systemW} height={layout.systemH}
+            fill="none" stroke="#9ca3af" strokeWidth="2"
+          />
+          <text
+            x={layout.systemX + layout.systemW / 2}
+            y={layout.systemY + 18}
+            textAnchor="middle" fontSize="13" fontWeight="bold"
+            fill="#111827" className="dark:fill-gray-100"
+          >
+            {ucd.systemName}
+          </text>
+          <line
+            x1={layout.systemX} y1={layout.systemY + SYSTEM_TITLE_H}
+            x2={layout.systemX + layout.systemW} y2={layout.systemY + SYSTEM_TITLE_H}
+            stroke="#d1d5db" strokeWidth="1"
+          />
+
+          {relationshipLines}
+
+          {layout.actors.map(actor => {
+            const cx = actor.cx;
+            const top = actor.cy;
+            return (
+              <g key={actor.id}>
+                <circle cx={cx} cy={top} r={10}
+                  fill="none" stroke="#374151" strokeWidth="1.5"
+                  className="dark:stroke-gray-300" />
+                <line x1={cx} y1={top + ACTOR_BODY_TOP} x2={cx} y2={top + ACTOR_BODY_BOT}
+                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <line x1={cx - 16} y1={top + ACTOR_BODY_MID} x2={cx + 16} y2={top + ACTOR_BODY_MID}
+                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <line x1={cx} y1={top + ACTOR_BODY_BOT} x2={cx - 13} y2={top + ACTOR_LEGS_BOT}
+                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <line x1={cx} y1={top + ACTOR_BODY_BOT} x2={cx + 13} y2={top + ACTOR_LEGS_BOT}
+                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <text x={cx} y={top + ACTOR_LABEL_Y}
+                  textAnchor="middle" fontSize="11" fontWeight="500"
+                  fill="#111827" className="dark:fill-gray-100">
+                  {actor.name}
+                </text>
+              </g>
+            );
+          })}
+
+          {layout.useCases.map(uc => (
+            <g key={uc.id}>
+              <ellipse
+                cx={uc.cx} cy={uc.cy}
+                rx={UC_W / 2} ry={UC_H / 2}
+                fill="#f0f9ff" stroke="#0284c7" strokeWidth="1.5"
+                className="dark:fill-sky-900/50 dark:stroke-sky-500"
+              />
+              <foreignObject
+                x={uc.cx - UC_W / 2 + 8} y={uc.cy - UC_H / 2 + 4}
+                width={UC_W - 16} height={UC_H - 8}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', fontSize: '11px', lineHeight: '1.3', color: '#0c4a6e' }}>
+                  {uc.label}
+                </div>
+              </foreignObject>
+            </g>
+          ))}
+        </svg>
+      </div>
     </div>
   );
 }
