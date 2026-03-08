@@ -18,7 +18,7 @@ import type {
 type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd' | 'erdChen' | 'erdCrowsFoot' | 'mockup';
 
 interface DesignToolsProps {
-  data: DesignToolsData;
+  data: DesignToolsData | null;
   isLoading: boolean;
   onRegenerate: () => void;
 }
@@ -76,6 +76,10 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
           <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
             <Loader2 className="w-8 h-8 animate-spin mb-3 text-blue-500" />
             <p className="text-sm">AI is generating your VCAA design tools...</p>
+          </div>
+        ) : !data ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+            <p className="text-sm">No data available. Click Regenerate to generate design tools.</p>
           </div>
         ) : (
           <>

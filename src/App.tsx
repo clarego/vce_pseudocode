@@ -447,7 +447,7 @@ function App() {
               {showDesignTools && (
                 <div className="sm:w-1/2 flex-1 sm:flex-none overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
                   <DesignTools
-                    data={designToolsData!}
+                    data={designToolsData}
                     isLoading={isDesignToolsLoading}
                     onRegenerate={() => {
                       setDesignToolsData(null);
