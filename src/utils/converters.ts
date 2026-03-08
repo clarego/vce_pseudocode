@@ -55,7 +55,6 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
     if (trimmed === 'BEGIN') {
       if (language === 'python') {
         convertedLines.push('# Start of program');
-        indentLevel++;
       } else {
         convertedLines.push('function main() {');
         indentLevel++;
@@ -64,10 +63,10 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
     }
 
     if (trimmed === 'END') {
-      indentLevel = Math.max(0, indentLevel - 1);
       if (language === 'python') {
         convertedLines.push('# End of program');
       } else {
+        indentLevel = Math.max(0, indentLevel - 1);
         convertedLines.push(getIndent(indentLevel) + '}');
       }
       continue;
@@ -201,8 +200,8 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
       if (funcMatch) {
         const [, funcName, params] = funcMatch;
         if (language === 'python') {
-          convertedLines.push(getIndent(indentLevel) + `# Function: ${funcName}(${params})`);
-          convertedLines.push(getIndent(indentLevel) + `# Note: Functions skipped for simplicity`);
+          convertedLines.push(getIndent(indentLevel) + `def ${funcName}(${params}):`);
+          indentLevel++;
         } else {
           convertedLines.push(getIndent(indentLevel) + `function ${funcName}(${params}) {`);
           indentLevel++;
@@ -214,7 +213,7 @@ export const pseudocodeToCode = (pseudocode: string, language: 'python' | 'javas
     if (trimmed.startsWith('RETURN ')) {
       const value = trimmed.substring(7);
       if (language === 'python') {
-        convertedLines.push(getIndent(indentLevel) + `# Return: ${value}`);
+        convertedLines.push(getIndent(indentLevel) + `return ${value}`);
       } else {
         convertedLines.push(getIndent(indentLevel) + `return ${value};`);
       }
