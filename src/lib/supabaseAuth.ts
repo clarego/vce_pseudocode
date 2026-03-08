@@ -41,7 +41,7 @@ export const fetchOpenAIKey = async (): Promise<string | null> => {
   const { data, error } = await authDb
     .from('secrets')
     .select('key_value')
-    .eq('key_name', 'OPEN_AI_KEY')
+    .eq('key_name', 'OPENAI_API_KEY')
     .maybeSingle();
 
   if (error) return null;
