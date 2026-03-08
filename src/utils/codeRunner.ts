@@ -85,12 +85,12 @@ export const runPython = async (code: string): Promise<ExecutionResult> => {
   try {
     const pyodide = await getPyodide();
 
-    pyodide.globals.set('_js_input', (prompt: string) => {
+    (window as any)._pyodide_input = (prompt: string) => {
       const value = window.prompt(prompt || 'Enter input:');
       const result = value !== null ? value : '';
       output.push(`> ${result}`);
       return result;
-    });
+    };
 
     await pyodide.runPythonAsync(`
 import sys
@@ -101,9 +101,10 @@ _stdout_capture = StringIO()
 sys.stdout = _stdout_capture
 sys.stderr = StringIO()
 
-from js import _js_input as _js_input_fn
+import js
 def _patched_input(prompt=''):
-    return _js_input_fn(prompt)
+    result = js.window._pyodide_input(str(prompt) if prompt else '')
+    return str(result) if result is not None else ''
 builtins.input = _patched_input
 `);
 
@@ -111,6 +112,7 @@ builtins.input = _patched_input
 
     const stdout: string = pyodide.runPython('_stdout_capture.getvalue()');
     pyodide.runPython('sys.stdout = sys.__stdout__');
+    delete (window as any)._pyodide_input;
 
     if (stdout) {
       const lines = stdout.split('\n');
@@ -120,8 +122,12 @@ builtins.input = _patched_input
 
     return { output };
   } catch (error: any) {
+    delete (window as any)._pyodide_input;
     const message: string = error.message || String(error);
-    const cleanMessage = message.replace(/File "<exec>", /g, '').replace(/File "\/lib\/.*?", /g, '').trim();
+    const cleanMessage = message
+      .replace(/File "<exec>", /g, '')
+      .replace(/File "\/lib\/.*?", line \d+, in \S+\n/g, '')
+      .trim();
     return { output, error: cleanMessage };
   }
 };
