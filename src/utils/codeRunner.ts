@@ -85,17 +85,26 @@ export const runPython = async (code: string): Promise<ExecutionResult> => {
   try {
     const pyodide = await getPyodide();
 
-    const capturedOutput: string[] = [];
-
-    pyodide.globals.set('_output_lines', pyodide.toPy(capturedOutput));
+    pyodide.globals.set('_js_input', (prompt: string) => {
+      const value = window.prompt(prompt || 'Enter input:');
+      const result = value !== null ? value : '';
+      output.push(`> ${result}`);
+      return result;
+    });
 
     await pyodide.runPythonAsync(`
 import sys
+import builtins
 from io import StringIO
 
 _stdout_capture = StringIO()
 sys.stdout = _stdout_capture
 sys.stderr = StringIO()
+
+from js import _js_input as _js_input_fn
+def _patched_input(prompt=''):
+    return _js_input_fn(prompt)
+builtins.input = _patched_input
 `);
 
     await pyodide.runPythonAsync(code);
@@ -112,7 +121,7 @@ sys.stderr = StringIO()
     return { output };
   } catch (error: any) {
     const message: string = error.message || String(error);
-    const cleanMessage = message.replace(/File "<exec>", /g, '').trim();
+    const cleanMessage = message.replace(/File "<exec>", /g, '').replace(/File "\/lib\/.*?", /g, '').trim();
     return { output, error: cleanMessage };
   }
 };
