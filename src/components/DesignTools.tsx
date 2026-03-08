@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network } from 'lucide-react';
+import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database } from 'lucide-react';
 import type {
   DesignTools as DesignToolsData,
   FlowchartNode,
@@ -13,7 +13,7 @@ import type {
   DfdFlow,
 } from '../utils/aiService';
 
-type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd';
+type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd' | 'erdChen' | 'erdCrowsFoot';
 
 interface DesignToolsProps {
   data: DesignToolsData;
@@ -27,6 +27,8 @@ const TAB_CONFIG: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'ipo', label: 'IPO Chart', icon: <ArrowRightLeft className="w-4 h-4" /> },
   { id: 'ucd', label: 'Use Case Diagram', icon: <Users className="w-4 h-4" /> },
   { id: 'dfd', label: 'Data Flow Diagram', icon: <Network className="w-4 h-4" /> },
+  { id: 'erdChen', label: "ERD (Chen's)", icon: <Database className="w-4 h-4" /> },
+  { id: 'erdCrowsFoot', label: "ERD (Crow's Foot)", icon: <Database className="w-4 h-4" /> },
 ];
 
 export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onRegenerate }) => {
@@ -79,6 +81,8 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
             {activeTab === 'ipo' && <IpoChartView chart={data.ipoChart} />}
             {activeTab === 'ucd' && <UcdView ucd={data.ucd} />}
             {activeTab === 'dfd' && <DfdView levels={data.dfd} />}
+            {activeTab === 'erdChen' && <ErdChenView erd={data.erd} />}
+            {activeTab === 'erdCrowsFoot' && <ErdCrowsFootView erd={data.erd} />}
           </>
         )}
       </div>
@@ -955,6 +959,551 @@ function DfdView({ levels }: { levels: DfdLevel[] }) {
           <strong>VCAA Balancing rule:</strong> All data flows entering and leaving a process in a higher-level DFD must be preserved when that process is decomposed into a lower-level DFD.
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── ERD shared helpers ───────────────────────────────────────────────────────
+
+type ErdData = DesignToolsData['erd'];
+
+function useErdLayout(erd: ErdData) {
+  if (!erd?.entities?.length) return null;
+
+  const ENT_W = 160;
+  const ENT_ATTR_H = 22;
+  const ENT_HEADER_H = 32;
+  const REL_SIZE = 56;
+  const cols = Math.min(erd.entities.length, 3);
+  const colGap = 260;
+  const rowGap = 300;
+
+  const entityPositions: Record<string, { x: number; y: number; w: number; h: number }> = {};
+  erd.entities.forEach((ent, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const h = ENT_HEADER_H + ent.attributes.length * ENT_ATTR_H + 8;
+    entityPositions[ent.id] = {
+      x: 80 + col * colGap,
+      y: 80 + row * rowGap,
+      w: ENT_W,
+      h,
+    };
+  });
+
+  const relPositions: Record<string, { x: number; y: number }> = {};
+  erd.relationships.forEach(rel => {
+    const [a, b] = rel.entities;
+    const pa = entityPositions[a];
+    const pb = entityPositions[b];
+    if (!pa || !pb) return;
+    relPositions[rel.id] = {
+      x: (pa.x + pa.w / 2 + pb.x + pb.w / 2) / 2 - REL_SIZE / 2,
+      y: (pa.y + pa.h / 2 + pb.y + pb.h / 2) / 2 - REL_SIZE / 2,
+    };
+  });
+
+  const allX = Object.values(entityPositions).map(p => p.x + p.w);
+  const allY = Object.values(entityPositions).map(p => p.y + p.h);
+  const svgW = Math.max(...allX) + 100;
+  const svgH = Math.max(...allY) + 100;
+
+  return { entityPositions, relPositions, svgW, svgH, ENT_W, ENT_ATTR_H, ENT_HEADER_H, REL_SIZE };
+}
+
+// ─── Chen's Notation ERD ─────────────────────────────────────────────────────
+
+function ErdChenView({ erd }: { erd: ErdData }) {
+  if (!erd?.entities?.length) {
+    return <div className="text-center text-gray-500 py-8">No ERD data available.</div>;
+  }
+
+  const layout = useErdLayout(erd);
+  if (!layout) return null;
+
+  const { entityPositions, relPositions, svgW, svgH, ENT_HEADER_H, REL_SIZE } = layout;
+
+  const ATTR_ELLIPSE_RX = 44;
+  const ATTR_ELLIPSE_RY = 16;
+
+  const getEntityCenter = (id: string) => {
+    const p = entityPositions[id];
+    if (!p) return { x: 0, y: 0 };
+    return { x: p.x + p.w / 2, y: p.y + p.h / 2 };
+  };
+
+  const getRelCenter = (id: string) => {
+    const p = relPositions[id];
+    if (!p) return { x: 0, y: 0 };
+    return { x: p.x + REL_SIZE / 2, y: p.y + REL_SIZE / 2 };
+  };
+
+  return (
+    <div>
+      <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs flex flex-wrap gap-4">
+        <div className="flex items-center gap-2">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            <rect x="2" y="2" width="36" height="16" fill="none" stroke="#2563eb" strokeWidth="1.5" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Entity (strong)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            <rect x="2" y="2" width="36" height="16" fill="none" stroke="#2563eb" strokeWidth="1.5" />
+            <rect x="5" y="5" width="30" height="10" fill="none" stroke="#2563eb" strokeWidth="1" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Weak entity</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            <polygon points="20,2 38,10 20,18 2,10" fill="none" stroke="#d97706" strokeWidth="1.5" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Relationship</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            <ellipse cx="20" cy="10" rx="18" ry="8" fill="none" stroke="#16a34a" strokeWidth="1.5" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Attribute</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            <ellipse cx="20" cy="10" rx="18" ry="8" fill="none" stroke="#16a34a" strokeWidth="1.5" />
+            <ellipse cx="20" cy="10" rx="14" ry="5" fill="none" stroke="#16a34a" strokeWidth="1" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Multi-valued</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            <ellipse cx="20" cy="10" rx="18" ry="8" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeDasharray="4,2" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Derived</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            <text x="20" y="14" textAnchor="middle" fontSize="11" fontWeight="bold" textDecoration="underline" fill="#374151">pk</text>
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Primary key (underlined)</span>
+        </div>
+      </div>
+
+      <div className="overflow-auto">
+        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto">
+          {erd.relationships.map(rel => {
+            const relC = getRelCenter(rel.id);
+            return rel.entities.map(entId => {
+              const entC = getEntityCenter(entId);
+              const participation = rel.participation?.[entId];
+              return (
+                <line
+                  key={`${rel.id}-${entId}`}
+                  x1={relC.x} y1={relC.y}
+                  x2={entC.x} y2={entC.y}
+                  stroke="#6b7280" strokeWidth={participation === 'total' ? 3 : 1.5}
+                  strokeDasharray={participation === 'total' ? undefined : undefined}
+                />
+              );
+            });
+          })}
+
+          {erd.entities.map(ent => {
+            const p = entityPositions[ent.id];
+            if (!p) return null;
+            const cx = p.x + p.w / 2;
+            const totalAttrs = ent.attributes.length;
+            const angleStep = totalAttrs > 0 ? (2 * Math.PI) / totalAttrs : 0;
+            const attrOrbitR = 90;
+
+            return (
+              <g key={ent.id}>
+                {ent.attributes.map((attr, ai) => {
+                  const angle = -Math.PI / 2 + ai * angleStep;
+                  const ax = cx + Math.cos(angle) * attrOrbitR;
+                  const ay = p.y + p.h / 2 + Math.sin(angle) * attrOrbitR;
+                  return (
+                    <g key={attr.name}>
+                      <line x1={cx} y1={p.y + p.h / 2} x2={ax} y2={ay}
+                        stroke="#9ca3af" strokeWidth="1" />
+                      {attr.isDerived ? (
+                        <ellipse cx={ax} cy={ay} rx={ATTR_ELLIPSE_RX} ry={ATTR_ELLIPSE_RY}
+                          fill="white" stroke="#16a34a" strokeWidth="1.5" strokeDasharray="4,2"
+                          className="dark:fill-gray-900" />
+                      ) : attr.isMultiValued ? (
+                        <g>
+                          <ellipse cx={ax} cy={ay} rx={ATTR_ELLIPSE_RX} ry={ATTR_ELLIPSE_RY}
+                            fill="white" stroke="#16a34a" strokeWidth="1.5"
+                            className="dark:fill-gray-900" />
+                          <ellipse cx={ax} cy={ay} rx={ATTR_ELLIPSE_RX - 4} ry={ATTR_ELLIPSE_RY - 4}
+                            fill="none" stroke="#16a34a" strokeWidth="1" />
+                        </g>
+                      ) : (
+                        <ellipse cx={ax} cy={ay} rx={ATTR_ELLIPSE_RX} ry={ATTR_ELLIPSE_RY}
+                          fill="white" stroke="#16a34a" strokeWidth="1.5"
+                          className="dark:fill-gray-900" />
+                      )}
+                      {attr.isPrimary ? (
+                        <text x={ax} y={ay + 1} textAnchor="middle" dominantBaseline="middle"
+                          fontSize="9" fontFamily="sans-serif" textDecoration="underline"
+                          fill="#111827" className="dark:fill-gray-100">
+                          {attr.name}
+                        </text>
+                      ) : (
+                        <text x={ax} y={ay + 1} textAnchor="middle" dominantBaseline="middle"
+                          fontSize="9" fontFamily="sans-serif"
+                          fill="#374151" className="dark:fill-gray-300">
+                          {attr.name}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {ent.isWeak ? (
+                  <g>
+                    <rect x={p.x} y={p.y} width={p.w} height={ENT_HEADER_H}
+                      fill="#eff6ff" stroke="#2563eb" strokeWidth="2"
+                      className="dark:fill-blue-950" />
+                    <rect x={p.x + 3} y={p.y + 3} width={p.w - 6} height={ENT_HEADER_H - 6}
+                      fill="none" stroke="#2563eb" strokeWidth="1" />
+                  </g>
+                ) : (
+                  <rect x={p.x} y={p.y} width={p.w} height={ENT_HEADER_H}
+                    fill="#eff6ff" stroke="#2563eb" strokeWidth="2"
+                    className="dark:fill-blue-950" />
+                )}
+                <text x={cx} y={p.y + ENT_HEADER_H / 2 + 1}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize="12" fontWeight="bold" fill="#1e40af"
+                  className="dark:fill-blue-300">
+                  {ent.name}
+                </text>
+              </g>
+            );
+          })}
+
+          {erd.relationships.map(rel => {
+            const rp = relPositions[rel.id];
+            if (!rp) return null;
+            const rx = rp.x + REL_SIZE / 2;
+            const ry = rp.y + REL_SIZE / 2;
+            const half = REL_SIZE / 2;
+
+            const cardLabels = rel.entities.map(entId => {
+              const entC = getEntityCenter(entId);
+              const relC = { x: rx, y: ry };
+              const dx = entC.x - relC.x;
+              const dy = entC.y - relC.y;
+              const len = Math.sqrt(dx * dx + dy * dy) || 1;
+              return {
+                entId,
+                x: relC.x + (dx / len) * (half + 18),
+                y: relC.y + (dy / len) * (half + 18),
+                label: rel.cardinality?.[entId] === 'many' ? 'N' : '1',
+              };
+            });
+
+            return (
+              <g key={rel.id}>
+                {rel.isWeak ? (
+                  <g>
+                    <polygon points={`${rx},${ry - half} ${rx + half},${ry} ${rx},${ry + half} ${rx - half},${ry}`}
+                      fill="#fef3c7" stroke="#d97706" strokeWidth="2"
+                      className="dark:fill-amber-950" />
+                    <polygon points={`${rx},${ry - half + 5} ${rx + half - 5},${ry} ${rx},${ry + half - 5} ${rx - half + 5},${ry}`}
+                      fill="none" stroke="#d97706" strokeWidth="1" />
+                  </g>
+                ) : (
+                  <polygon points={`${rx},${ry - half} ${rx + half},${ry} ${rx},${ry + half} ${rx - half},${ry}`}
+                    fill="#fef3c7" stroke="#d97706" strokeWidth="2"
+                    className="dark:fill-amber-950" />
+                )}
+                <text x={rx} y={ry + 1} textAnchor="middle" dominantBaseline="middle"
+                  fontSize="9" fontWeight="600" fill="#92400e" className="dark:fill-amber-200">
+                  {rel.name}
+                </text>
+                {cardLabels.map(cl => (
+                  <text key={cl.entId} x={cl.x} y={cl.y}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize="12" fontWeight="bold" fill="#dc2626"
+                    className="dark:fill-red-400">
+                    {cl.label}
+                  </text>
+                ))}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg text-xs text-blue-700 dark:text-blue-300">
+        <strong>Chen's Notation:</strong> Entities are rectangles, relationships are diamonds, attributes are ellipses. Double border = weak entity/relationship. Underlined attribute = primary key. Double ellipse = multi-valued. Dashed ellipse = derived. Double line = total participation. Single line = partial participation.
+      </div>
+    </div>
+  );
+}
+
+// ─── Crow's Foot Notation ERD ────────────────────────────────────────────────
+
+function ErdCrowsFootView({ erd }: { erd: ErdData }) {
+  if (!erd?.entities?.length) {
+    return <div className="text-center text-gray-500 py-8">No ERD data available.</div>;
+  }
+
+  const ENT_W = 190;
+  const ENT_ATTR_H = 22;
+  const ENT_HEADER_H = 32;
+  const cols = Math.min(erd.entities.length, 3);
+  const colGap = 300;
+  const rowGap = 280;
+
+  const entityPositions: Record<string, { x: number; y: number; w: number; h: number }> = {};
+  erd.entities.forEach((ent, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const h = ENT_HEADER_H + ent.attributes.length * ENT_ATTR_H + 8;
+    entityPositions[ent.id] = {
+      x: 60 + col * colGap,
+      y: 60 + row * rowGap,
+      w: ENT_W,
+      h,
+    };
+  });
+
+  const allX = Object.values(entityPositions).map(p => p.x + p.w);
+  const allY = Object.values(entityPositions).map(p => p.y + p.h);
+  const svgW = Math.max(...allX) + 80;
+  const svgH = Math.max(...allY) + 80;
+
+  const getEntityBorderPoint = (id: string, toward: { x: number; y: number }) => {
+    const p = entityPositions[id];
+    if (!p) return { x: 0, y: 0 };
+    const cx = p.x + p.w / 2;
+    const cy = p.y + p.h / 2;
+    const dx = toward.x - cx;
+    const dy = toward.y - cy;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    const hw = p.w / 2;
+    const hh = p.h / 2;
+    let t: number;
+    if (absDx * hh > absDy * hw) {
+      t = hw / (absDx || 1);
+    } else {
+      t = hh / (absDy || 1);
+    }
+    return { x: cx + dx * t, y: cy + dy * t };
+  };
+
+  const drawCrowsFoot = (x: number, y: number, dx: number, dy: number, cardinality: 'one' | 'many', participation: 'partial' | 'total') => {
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const perp = 8;
+    const tickOffset = 14;
+    const crowOffset = 22;
+
+    const elements: React.ReactNode[] = [];
+
+    if (participation === 'total') {
+      elements.push(
+        <line key="total1"
+          x1={x - ux * tickOffset - uy * perp} y1={y - uy * tickOffset + ux * perp}
+          x2={x - ux * tickOffset + uy * perp} y2={y - uy * tickOffset - ux * perp}
+          stroke="#374151" strokeWidth="2" className="dark:stroke-gray-300" />,
+        <line key="total2"
+          x1={x - ux * (tickOffset + 5) - uy * perp} y1={y - uy * (tickOffset + 5) + ux * perp}
+          x2={x - ux * (tickOffset + 5) + uy * perp} y2={y - uy * (tickOffset + 5) - ux * perp}
+          stroke="#374151" strokeWidth="2" className="dark:stroke-gray-300" />
+      );
+    } else {
+      elements.push(
+        <line key="partial"
+          x1={x - ux * tickOffset - uy * perp} y1={y - uy * tickOffset + ux * perp}
+          x2={x - ux * tickOffset + uy * perp} y2={y - uy * tickOffset - ux * perp}
+          stroke="#374151" strokeWidth="2" className="dark:stroke-gray-300" />
+      );
+    }
+
+    if (cardinality === 'many') {
+      elements.push(
+        <line key="cf1"
+          x1={x - ux * crowOffset} y1={y - uy * crowOffset}
+          x2={x - uy * perp} y2={y + ux * perp}
+          stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />,
+        <line key="cf2"
+          x1={x - ux * crowOffset} y1={y - uy * crowOffset}
+          x2={x + uy * perp} y2={y - ux * perp}
+          stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />,
+        <line key="cf3"
+          x1={x - ux * crowOffset} y1={y - uy * crowOffset}
+          x2={x} y2={y}
+          stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+      );
+    } else {
+      elements.push(
+        <line key="one"
+          x1={x - ux * crowOffset - uy * perp} y1={y - uy * crowOffset + ux * perp}
+          x2={x - ux * crowOffset + uy * perp} y2={y - uy * crowOffset - ux * perp}
+          stroke="#374151" strokeWidth="2" className="dark:stroke-gray-300" />
+      );
+    }
+
+    return elements;
+  };
+
+  return (
+    <div>
+      <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs flex flex-wrap gap-5">
+        <div className="flex items-center gap-2">
+          <svg width="50" height="20" viewBox="0 0 50 20">
+            <line x1="0" y1="10" x2="50" y2="10" stroke="#374151" strokeWidth="1.5" />
+            <line x1="10" y1="4" x2="10" y2="16" stroke="#374151" strokeWidth="2" />
+            <line x1="15" y1="4" x2="15" y2="16" stroke="#374151" strokeWidth="2" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Mandatory (total)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="50" height="20" viewBox="0 0 50 20">
+            <line x1="0" y1="10" x2="50" y2="10" stroke="#374151" strokeWidth="1.5" />
+            <line x1="10" y1="4" x2="10" y2="16" stroke="#374151" strokeWidth="2" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Optional (partial)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="50" height="20" viewBox="0 0 50 20">
+            <line x1="0" y1="10" x2="30" y2="10" stroke="#374151" strokeWidth="1.5" />
+            <line x1="36" y1="4" x2="36" y2="16" stroke="#374151" strokeWidth="2" />
+            <line x1="30" y1="4" x2="50" y2="10" stroke="#374151" strokeWidth="1.5" />
+            <line x1="30" y1="16" x2="50" y2="10" stroke="#374151" strokeWidth="1.5" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">One</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="50" height="20" viewBox="0 0 50 20">
+            <line x1="0" y1="10" x2="30" y2="10" stroke="#374151" strokeWidth="1.5" />
+            <line x1="36" y1="4" x2="36" y2="16" stroke="#374151" strokeWidth="2" />
+            <line x1="50" y1="10" x2="30" y2="4" stroke="#374151" strokeWidth="1.5" />
+            <line x1="50" y1="10" x2="30" y2="16" stroke="#374151" strokeWidth="1.5" />
+            <line x1="50" y1="10" x2="30" y2="10" stroke="#374151" strokeWidth="1.5" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Many</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 16 16">
+            <rect x="1" y="1" width="14" height="14" fill="#eff6ff" stroke="#2563eb" strokeWidth="1.5" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Entity</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-600 dark:text-gray-400 font-bold underline text-xs">PK</span>
+          <span className="text-gray-600 dark:text-gray-400">Primary key</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-600 dark:text-gray-400 italic text-xs">FK</span>
+          <span className="text-gray-600 dark:text-gray-400">Foreign key</span>
+        </div>
+      </div>
+
+      <div className="overflow-auto">
+        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto">
+          {erd.relationships.map(rel => {
+            const [aId, bId] = rel.entities;
+            const pa = entityPositions[aId];
+            const pb = entityPositions[bId];
+            if (!pa || !pb) return null;
+            const acx = pa.x + pa.w / 2;
+            const acy = pa.y + pa.h / 2;
+            const bcx = pb.x + pb.w / 2;
+            const bcy = pb.y + pb.h / 2;
+
+            const ptA = getEntityBorderPoint(aId, { x: bcx, y: bcy });
+            const ptB = getEntityBorderPoint(bId, { x: acx, y: acy });
+            const dxAB = ptB.x - ptA.x;
+            const dyAB = ptB.y - ptA.y;
+            const dxBA = ptA.x - ptB.x;
+            const dyBA = ptA.y - ptB.y;
+            const midX = (ptA.x + ptB.x) / 2;
+            const midY = (ptA.y + ptB.y) / 2;
+
+            return (
+              <g key={rel.id}>
+                <line x1={ptA.x} y1={ptA.y} x2={ptB.x} y2={ptB.y}
+                  stroke="#9ca3af" strokeWidth="1.5" />
+                {drawCrowsFoot(ptA.x, ptA.y, dxAB, dyAB,
+                  rel.cardinality?.[aId] ?? 'one',
+                  rel.participation?.[aId] ?? 'partial'
+                )}
+                {drawCrowsFoot(ptB.x, ptB.y, dxBA, dyBA,
+                  rel.cardinality?.[bId] ?? 'many',
+                  rel.participation?.[bId] ?? 'partial'
+                )}
+                <rect x={midX - rel.name.length * 3.5 - 4} y={midY - 9}
+                  width={rel.name.length * 7 + 8} height={18}
+                  rx="3" fill="white" fillOpacity="0.9" className="dark:fill-gray-900" />
+                <text x={midX} y={midY + 1}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize="10" fontStyle="italic" fill="#374151"
+                  className="dark:fill-gray-300">
+                  {rel.name}
+                </text>
+              </g>
+            );
+          })}
+
+          {erd.entities.map(ent => {
+            const p = entityPositions[ent.id];
+            if (!p) return null;
+            const cx = p.x + p.w / 2;
+
+            return (
+              <g key={ent.id}>
+                <rect x={p.x} y={p.y} width={p.w} height={p.h}
+                  fill="white" stroke="#2563eb" strokeWidth="2" rx="2"
+                  className="dark:fill-gray-900" />
+                <rect x={p.x} y={p.y} width={p.w} height={ENT_HEADER_H}
+                  fill="#eff6ff" stroke="none" rx="2"
+                  className="dark:fill-blue-950" />
+                <rect x={p.x} y={p.y + ENT_HEADER_H - 1} width={p.w} height={1}
+                  fill="#2563eb" />
+                <text x={cx} y={p.y + ENT_HEADER_H / 2 + 1}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize="12" fontWeight="bold" fill="#1e40af"
+                  className="dark:fill-blue-300">
+                  {ent.name}
+                </text>
+
+                {ent.attributes.map((attr, ai) => {
+                  const ay = p.y + ENT_HEADER_H + ai * ENT_ATTR_H + ENT_ATTR_H / 2 + 4;
+                  const isPK = attr.isPrimary;
+                  const isFK = attr.isForeign;
+                  return (
+                    <g key={attr.name}>
+                      {ai > 0 && (
+                        <line x1={p.x} y1={p.y + ENT_HEADER_H + ai * ENT_ATTR_H + 4}
+                          x2={p.x + p.w} y2={p.y + ENT_HEADER_H + ai * ENT_ATTR_H + 4}
+                          stroke="#e5e7eb" strokeWidth="0.5" className="dark:stroke-gray-700" />
+                      )}
+                      <text x={p.x + 10} y={ay}
+                        dominantBaseline="middle"
+                        fontSize="10"
+                        fontWeight={isPK ? 'bold' : 'normal'}
+                        fontStyle={isFK ? 'italic' : 'normal'}
+                        textDecoration={isPK ? 'underline' : 'none'}
+                        fill={isPK ? '#1e40af' : isFK ? '#6b7280' : '#374151'}
+                        className={isPK ? 'dark:fill-blue-300' : isFK ? 'dark:fill-gray-400' : 'dark:fill-gray-200'}>
+                        {isPK ? 'PK ' : isFK ? 'FK ' : '      '}{attr.name}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg text-xs text-blue-700 dark:text-blue-300">
+        <strong>Crow's Foot Notation:</strong> Entities are rectangles with a header. Relationship lines connect entities directly. The crow's foot symbol at each end shows cardinality (one / many). Two tick marks = mandatory (total participation). One tick mark = optional (partial participation).
+      </div>
     </div>
   );
 }

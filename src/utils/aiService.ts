@@ -199,6 +199,31 @@ export interface DfdLevel {
   flows: DfdFlow[];
 }
 
+export interface ErdAttribute {
+  name: string;
+  isPrimary: boolean;
+  isForeign?: boolean;
+  isMultiValued?: boolean;
+  isDerived?: boolean;
+}
+
+export interface ErdEntity {
+  id: string;
+  name: string;
+  isWeak?: boolean;
+  attributes: ErdAttribute[];
+}
+
+export interface ErdRelationship {
+  id: string;
+  name: string;
+  isWeak?: boolean;
+  entities: string[];
+  cardinality: Record<string, 'one' | 'many'>;
+  participation: Record<string, 'partial' | 'total'>;
+  attributes?: ErdAttribute[];
+}
+
 export interface DesignTools {
   flowchart: FlowchartNode[];
   dataDictionary: DataDictionaryRow[];
@@ -210,6 +235,10 @@ export interface DesignTools {
     relationships: UcdRelationship[];
   };
   dfd: DfdLevel[];
+  erd: {
+    entities: ErdEntity[];
+    relationships: ErdRelationship[];
+  };
 }
 
 export const aiGenerateDesignTools = async (
@@ -306,7 +335,31 @@ Return ONLY valid JSON matching this exact structure (no markdown, no extra text
         { "from": "p1_2", "to": "e1", "label": "output_data" }
       ]
     }
-  ]
+  ],
+  "erd": {
+    "entities": [
+      {
+        "id": "e1",
+        "name": "EntityName",
+        "isWeak": false,
+        "attributes": [
+          { "name": "entityID", "isPrimary": true, "isForeign": false, "isMultiValued": false, "isDerived": false },
+          { "name": "attributeName", "isPrimary": false, "isForeign": false, "isMultiValued": false, "isDerived": false }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "id": "r1",
+        "name": "RELATIONSHIP_NAME",
+        "isWeak": false,
+        "entities": ["e1", "e2"],
+        "cardinality": { "e1": "one", "e2": "many" },
+        "participation": { "e1": "partial", "e2": "total" },
+        "attributes": []
+      }
+    ]
+  }
 }
 
 VCAA Rules:
@@ -323,7 +376,8 @@ VCAA Rules:
 - DFD Level 0 (Context Diagram): EXACTLY ONE process element (the system), external entities only, NO data stores, data flows named in snake_case. The single process id must be "sys".
 - DFD Level 1: numbered processes (label = "1 Name", "2 Name" etc), same external entities as Level 0, data stores appear (label = "D1 Name", "D2 Name"), all Level 0 data flows preserved. External entities CANNOT connect directly to data stores.
 - DFD Level 2: decomposes the FIRST complex process from Level 1, sub-processes numbered e.g. "1.1 Name", "1.2 Name". Balances with parent process flows.
-- All DFD data flow labels must use snake_case.`;
+- All DFD data flow labels must use snake_case.
+- ERD: Identify all entities (nouns/objects) and relationships (verbs between entities) from the pseudocode/code. Include all relevant attributes. For cardinality use "one" or "many". For participation use "partial" or "total". Mark primary keys (isPrimary:true) and foreign keys (isForeign:true). Weak entities (isWeak:true) depend on a strong entity. Multi-valued attributes use isMultiValued:true. Derived attributes use isDerived:true.`;
 
   const raw = await callOpenAI(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
   const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
