@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network } from 'lucide-react';
 import type {
   DesignTools as DesignToolsData,
   FlowchartNode,
@@ -8,9 +8,12 @@ import type {
   UcdActor,
   UcdUseCase,
   UcdRelationship,
+  DfdLevel,
+  DfdElement,
+  DfdFlow,
 } from '../utils/aiService';
 
-type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd';
+type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd';
 
 interface DesignToolsProps {
   data: DesignToolsData;
@@ -23,6 +26,7 @@ const TAB_CONFIG: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'dataDictionary', label: 'Data Dictionary', icon: <Table2 className="w-4 h-4" /> },
   { id: 'ipo', label: 'IPO Chart', icon: <ArrowRightLeft className="w-4 h-4" /> },
   { id: 'ucd', label: 'Use Case Diagram', icon: <Users className="w-4 h-4" /> },
+  { id: 'dfd', label: 'Data Flow Diagram', icon: <Network className="w-4 h-4" /> },
 ];
 
 export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onRegenerate }) => {
@@ -74,6 +78,7 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
             {activeTab === 'dataDictionary' && <DataDictionaryView rows={data.dataDictionary} />}
             {activeTab === 'ipo' && <IpoChartView chart={data.ipoChart} />}
             {activeTab === 'ucd' && <UcdView ucd={data.ucd} />}
+            {activeTab === 'dfd' && <DfdView levels={data.dfd} />}
           </>
         )}
       </div>
@@ -600,6 +605,259 @@ function UcdView({ ucd }: { ucd: DesignToolsData['ucd'] }) {
           </g>
         ))}
       </svg>
+    </div>
+  );
+}
+
+const DFD_LEVEL_COLORS: Record<number, { bg: string; border: string; label: string }> = {
+  0: { bg: 'bg-slate-50 dark:bg-slate-900', border: 'border-slate-300 dark:border-slate-600', label: 'Context Diagram (Level 0)' },
+  1: { bg: 'bg-blue-50 dark:bg-blue-950', border: 'border-blue-200 dark:border-blue-700', label: 'Level 1 DFD' },
+  2: { bg: 'bg-teal-50 dark:bg-teal-950', border: 'border-teal-200 dark:border-teal-700', label: 'Level 2 DFD' },
+};
+
+const EE_W = 100;
+const EE_H = 44;
+const PROC_R = 38;
+const DS_W = 130;
+const DS_H = 36;
+const DFD_PAD = 60;
+
+interface DfdNodePos {
+  el: DfdElement;
+  x: number;
+  y: number;
+}
+
+function computeDfdLayout(level: DfdLevel): { nodes: DfdNodePos[]; svgW: number; svgH: number } {
+  const ees = level.elements.filter(e => e.type === 'external_entity');
+  const procs = level.elements.filter(e => e.type === 'process');
+  const dss = level.elements.filter(e => e.type === 'data_store');
+
+  const nodes: DfdNodePos[] = [];
+  const svgW = Math.max(700, (procs.length + 1) * 180 + 160);
+
+  const procSpacing = (svgW - 200) / Math.max(procs.length, 1);
+  procs.forEach((p, i) => {
+    nodes.push({ el: p, x: 100 + i * procSpacing + procSpacing / 2, y: 160 });
+  });
+
+  const eeSide = Math.ceil(ees.length / 2);
+  ees.forEach((e, i) => {
+    const side = i < eeSide ? 'left' : 'right';
+    const idx = side === 'left' ? i : i - eeSide;
+    const y = DFD_PAD + idx * (EE_H + 40) + (EE_H + 40) / 2;
+    nodes.push({ el: e, x: side === 'left' ? DFD_PAD + EE_W / 2 : svgW - DFD_PAD - EE_W / 2, y });
+  });
+
+  dss.forEach((d, i) => {
+    const x = 100 + i * (DS_W + 40) + DS_W / 2;
+    nodes.push({ el: d, x, y: 320 });
+  });
+
+  const allY = nodes.map(n => n.y);
+  const svgH = Math.max(420, Math.max(...allY) + 120);
+  return { nodes, svgW, svgH };
+}
+
+function getNodeCenter(nodes: DfdNodePos[], id: string): { x: number; y: number } | null {
+  const n = nodes.find(n => n.el.id === id);
+  if (!n) return null;
+  return { x: n.x, y: n.y };
+}
+
+function DfdSingleLevel({ level }: { level: DfdLevel }) {
+  const { nodes, svgW, svgH } = computeDfdLayout(level);
+  const colors = DFD_LEVEL_COLORS[level.level] ?? DFD_LEVEL_COLORS[1];
+
+  const arrowMarker = `marker-${level.level}`;
+
+  return (
+    <div className={`rounded-lg border ${colors.border} ${colors.bg} p-4 mb-6`}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {colors.label}
+        </span>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">— {level.title}</span>
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-3 text-xs">
+        <div className="flex items-center gap-1.5">
+          <div className="w-8 h-5 bg-white dark:bg-gray-800 border border-gray-400 rounded-sm" />
+          <span className="text-gray-600 dark:text-gray-400">External Entity</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-full bg-sky-100 dark:bg-sky-900 border border-sky-400" />
+          <span className="text-gray-600 dark:text-gray-400">Process</span>
+        </div>
+        {level.elements.some(e => e.type === 'data_store') && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-8 h-4 bg-amber-50 dark:bg-amber-900/40 border-t border-b border-amber-400" />
+            <span className="text-gray-600 dark:text-gray-400">Data Store</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1.5">
+          <svg width="30" height="12" viewBox="0 0 30 12">
+            <line x1="0" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="1.5" className="text-gray-500 dark:text-gray-400" />
+            <polygon points="30,6 20,2 20,10" fill="currentColor" className="text-gray-500 dark:text-gray-400" />
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Data Flow</span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto">
+          <defs>
+            <marker id={arrowMarker} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
+            </marker>
+          </defs>
+
+          {level.flows.map((flow, fi) => {
+            const from = getNodeCenter(nodes, flow.from);
+            const to = getNodeCenter(nodes, flow.to);
+            if (!from || !to) return null;
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const ux = dx / len, uy = dy / len;
+
+            const fEl = level.elements.find(e => e.id === flow.from);
+            const tEl = level.elements.find(e => e.id === flow.to);
+            const fromR = fEl?.type === 'process' ? PROC_R : fEl?.type === 'data_store' ? DS_H / 2 : EE_H / 2;
+            const toR = tEl?.type === 'process' ? PROC_R : tEl?.type === 'data_store' ? DS_H / 2 : EE_H / 2;
+
+            const x1 = from.x + ux * fromR;
+            const y1 = from.y + uy * fromR;
+            const x2 = to.x - ux * (toR + 10);
+            const y2 = to.y - uy * (toR + 10);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            return (
+              <g key={fi}>
+                <line x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="#6b7280" strokeWidth="1.5"
+                  markerEnd={`url(#${arrowMarker})`} />
+                <rect x={midX - flow.label.length * 3} y={midY - 10}
+                  width={flow.label.length * 6 + 4} height={16}
+                  rx="3" fill="white" fillOpacity="0.9" className="dark:fill-gray-900" />
+                <text x={midX} y={midY + 1}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize="9" fontFamily="monospace"
+                  fill="#374151" className="dark:fill-gray-300">
+                  {flow.label}
+                </text>
+              </g>
+            );
+          })}
+
+          {nodes.map(({ el, x, y }) => {
+            if (el.type === 'external_entity') {
+              return (
+                <g key={el.id}>
+                  <rect x={x - EE_W / 2} y={y - EE_H / 2} width={EE_W} height={EE_H}
+                    fill="white" stroke="#6b7280" strokeWidth="1.5" rx="2"
+                    className="dark:fill-gray-800 dark:stroke-gray-400" />
+                  <text x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+                    fontSize="11" fontWeight="500" fill="#111827"
+                    className="dark:fill-gray-100">
+                    {el.label}
+                  </text>
+                </g>
+              );
+            }
+            if (el.type === 'process') {
+              return (
+                <g key={el.id}>
+                  <circle cx={x} cy={y} r={PROC_R}
+                    fill="#e0f2fe" stroke="#0284c7" strokeWidth="1.5"
+                    className="dark:fill-sky-900 dark:stroke-sky-500" />
+                  <foreignObject x={x - PROC_R + 4} y={y - PROC_R + 4}
+                    width={(PROC_R - 4) * 2} height={(PROC_R - 4) * 2}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', fontSize: '10px', lineHeight: '1.2', color: '#0c4a6e' }}>
+                      {el.label}
+                    </div>
+                  </foreignObject>
+                </g>
+              );
+            }
+            if (el.type === 'data_store') {
+              const left = x - DS_W / 2;
+              const top = y - DS_H / 2;
+              return (
+                <g key={el.id}>
+                  <line x1={left} y1={top} x2={left + DS_W} y2={top}
+                    stroke="#d97706" strokeWidth="1.5" />
+                  <line x1={left} y1={top + DS_H} x2={left + DS_W} y2={top + DS_H}
+                    stroke="#d97706" strokeWidth="1.5" />
+                  <rect x={left} y={top} width={DS_W} height={DS_H}
+                    fill="#fffbeb" fillOpacity="0.8" stroke="none"
+                    className="dark:fill-amber-950" />
+                  <line x1={left + 24} y1={top} x2={left + 24} y2={top + DS_H}
+                    stroke="#d97706" strokeWidth="1.5" />
+                  <text x={left + 24 + (DS_W - 24) / 2} y={y}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize="10" fill="#92400e" className="dark:fill-amber-200">
+                    {el.label}
+                  </text>
+                </g>
+              );
+            }
+            return null;
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function DfdView({ levels }: { levels: DfdLevel[] }) {
+  if (!levels || levels.length === 0) {
+    return <div className="text-center text-gray-500 py-8">No data flow diagram available.</div>;
+  }
+
+  const [activeLevel, setActiveLevel] = useState(0);
+  const sortedLevels = [...levels].sort((a, b) => a.level - b.level);
+  const current = sortedLevels[activeLevel] ?? sortedLevels[0];
+
+  const levelLabels: Record<number, string> = {
+    0: 'Context Diagram',
+    1: 'Level 1 DFD',
+    2: 'Level 2 DFD',
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">DFD Level:</span>
+        {sortedLevels.map((lvl, i) => (
+          <button
+            key={i}
+            onClick={() => setActiveLevel(i)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+              activeLevel === i
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-blue-400'
+            }`}
+          >
+            {levelLabels[lvl.level] ?? `Level ${lvl.level}`}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg text-xs text-blue-700 dark:text-blue-300">
+        {current.level === 0 && 'Context Diagram: Shows the entire system as a single process with all external entities and data flows. No data stores.'}
+        {current.level === 1 && 'Level 1 DFD: Decomposes the system into its major numbered processes. Data stores appear. External entities cannot connect directly to data stores.'}
+        {current.level === 2 && `Level 2 DFD: Decomposes ${current.parentProcessId ? `process ${current.parentProcessId}` : 'a process'} into sub-processes. Process numbers use dot notation (e.g. 1.1, 1.2). Balanced with parent data flows.`}
+      </div>
+
+      <DfdSingleLevel level={current} />
+
+      {sortedLevels.length > 1 && (
+        <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-400">
+          <strong>VCAA Balancing rule:</strong> All data flows entering and leaving a process in a higher-level DFD must be preserved when that process is decomposed into a lower-level DFD.
+        </div>
+      )}
     </div>
   );
 }

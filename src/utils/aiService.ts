@@ -179,6 +179,26 @@ export interface UcdRelationship {
   label?: string;
 }
 
+export interface DfdElement {
+  id: string;
+  type: 'external_entity' | 'process' | 'data_store';
+  label: string;
+}
+
+export interface DfdFlow {
+  from: string;
+  to: string;
+  label: string;
+}
+
+export interface DfdLevel {
+  level: 0 | 1 | 2;
+  title: string;
+  parentProcessId?: string;
+  elements: DfdElement[];
+  flows: DfdFlow[];
+}
+
 export interface DesignTools {
   flowchart: FlowchartNode[];
   dataDictionary: DataDictionaryRow[];
@@ -189,6 +209,7 @@ export interface DesignTools {
     useCases: UcdUseCase[];
     relationships: UcdRelationship[];
   };
+  dfd: DfdLevel[];
 }
 
 export const aiGenerateDesignTools = async (
@@ -197,7 +218,7 @@ export const aiGenerateDesignTools = async (
   codeType: 'pseudocode' | 'python' | 'javascript'
 ): Promise<DesignTools> => {
   const systemPrompt = `You are a VCE Software Development teacher in Victoria, Australia.
-Analyse the given ${codeType} and produce all four VCAA-approved design tools in strict JSON.
+Analyse the given ${codeType} and produce all five VCAA-approved design tools in strict JSON.
 
 Return ONLY valid JSON matching this exact structure (no markdown, no extra text):
 {
@@ -225,14 +246,14 @@ Return ONLY valid JSON matching this exact structure (no markdown, no extra text
   ],
   "ipoChart": {
     "title": "Name of the main process",
-    "inputs": ["inputName (dataType)", ...],
-    "process": ["Step 1: plain English description", "Step 2: ...", ...],
-    "outputs": ["outputName (dataType)", ...]
+    "inputs": ["inputName (dataType)"],
+    "process": ["Step 1: plain English description"],
+    "outputs": ["outputName (dataType)"]
   },
   "ucd": {
     "systemName": "Name of the system",
     "actors": [
-      { "id": "a1", "name": "User", "side": "left", "parent": "optional parent actor id for generalisation" }
+      { "id": "a1", "name": "User", "side": "left" }
     ],
     "useCases": [
       { "id": "uc1", "label": "Verb Noun phrase" }
@@ -240,14 +261,63 @@ Return ONLY valid JSON matching this exact structure (no markdown, no extra text
     "relationships": [
       { "type": "association|include|extend|generalization", "from": "id", "to": "id" }
     ]
-  }
+  },
+  "dfd": [
+    {
+      "level": 0,
+      "title": "Context Diagram – SystemName",
+      "elements": [
+        { "id": "sys", "type": "process", "label": "SystemName" },
+        { "id": "e1", "type": "external_entity", "label": "User" }
+      ],
+      "flows": [
+        { "from": "e1", "to": "sys", "label": "input_data" },
+        { "from": "sys", "to": "e1", "label": "output_data" }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "Level 1 DFD – SystemName",
+      "elements": [
+        { "id": "e1", "type": "external_entity", "label": "User" },
+        { "id": "p1", "type": "process", "label": "1 Process Name" },
+        { "id": "p2", "type": "process", "label": "2 Process Name" },
+        { "id": "ds1", "type": "data_store", "label": "D1 Data Store Name" }
+      ],
+      "flows": [
+        { "from": "e1", "to": "p1", "label": "input_data" },
+        { "from": "p1", "to": "ds1", "label": "stored_data" },
+        { "from": "ds1", "to": "p2", "label": "retrieved_data" },
+        { "from": "p2", "to": "e1", "label": "output_data" }
+      ]
+    },
+    {
+      "level": 2,
+      "title": "Level 2 DFD – Decomposition of Process 1",
+      "parentProcessId": "p1",
+      "elements": [
+        { "id": "e1", "type": "external_entity", "label": "User" },
+        { "id": "p1_1", "type": "process", "label": "1.1 Sub-process Name" },
+        { "id": "p1_2", "type": "process", "label": "1.2 Sub-process Name" }
+      ],
+      "flows": [
+        { "from": "e1", "to": "p1_1", "label": "input_data" },
+        { "from": "p1_1", "to": "p1_2", "label": "intermediate_data" },
+        { "from": "p1_2", "to": "e1", "label": "output_data" }
+      ]
+    }
+  ]
 }
 
 VCAA Rules:
-- Flowchart: use terminal (oval) for START/END, process (rect) for computations/assignments, decision (diamond) for IF/loop conditions labelled Yes/No branches, io (parallelogram) for INPUT/OUTPUT, predefined (striped rect) for function calls. Flow goes top-to-bottom. The first node must be id "1" type "terminal" label "START".
-- Data Dictionary: list ALL variables/identifiers found. Use exact VCAA data types. Format: N=digit, X=char.
-- IPO chart: plain English process steps — NO pseudocode syntax. Inputs and outputs are DATA ITEMS only.
-- UCD: identify actors and use cases from the program's purpose. Use <<include>> for mandatory sub-functions, <<extend>> for optional/conditional. Actors outside boundary, use cases inside.`;
+- Flowchart: terminal (oval) for START/END, process (rect) for computations, decision (diamond) for IF/loops with Yes/No branches, io (parallelogram) for INPUT/OUTPUT, predefined (striped rect) for function calls. First node id "1" type "terminal" label "START".
+- Data Dictionary: ALL variables. VCAA data types. N=digit, X=char format notation.
+- IPO chart: plain English process steps ONLY — no pseudocode syntax. Data items only in inputs/outputs.
+- UCD: actors + use cases from program purpose. <<include>> for mandatory sub-functions, <<extend>> for optional.
+- DFD Level 0 (Context Diagram): EXACTLY ONE process element (the system), external entities only, NO data stores, data flows named in snake_case. The single process id must be "sys".
+- DFD Level 1: numbered processes (label = "1 Name", "2 Name" etc), same external entities as Level 0, data stores appear (label = "D1 Name", "D2 Name"), all Level 0 data flows preserved. External entities CANNOT connect directly to data stores.
+- DFD Level 2: decomposes the FIRST complex process from Level 1, sub-processes numbered e.g. "1.1 Name", "1.2 Name". Balances with parent process flows.
+- All DFD data flow labels must use snake_case.`;
 
   const raw = await callOpenAI(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
   const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
