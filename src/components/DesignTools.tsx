@@ -307,34 +307,60 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, error
         import('jspdf'),
       ]);
 
-      const canvas = await html2canvas(contentRef.current, {
+      const el = contentRef.current;
+      const prevMaxH = el.style.maxHeight;
+      const prevOverflow = el.style.overflow;
+      el.style.maxHeight = 'none';
+      el.style.overflow = 'visible';
+
+      const canvas = await html2canvas(el, {
         scale: 2,
         backgroundColor: '#ffffff',
         useCORS: true,
         logging: false,
+        scrollY: 0,
+        windowHeight: el.scrollHeight + 200,
+        height: el.scrollHeight,
       });
 
+      el.style.maxHeight = prevMaxH;
+      el.style.overflow = prevOverflow;
+
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentW = pageW - margin * 2;
-      const contentH = (canvas.height / canvas.width) * contentW;
 
-      pdf.setFontSize(14);
+      const imgPxW = canvas.width;
+      const imgPxH = canvas.height;
+      const imgRatio = imgPxH / imgPxW;
+
+      const margin = 15;
+
+      const a3Portrait = [297, 420] as [number, number];
+      const a3Landscape = [420, 297] as [number, number];
+
+      const usePortrait = imgRatio >= 1;
+      const [pageW, pageH] = usePortrait ? a3Portrait : a3Landscape;
+      const orientation = usePortrait ? 'portrait' : 'landscape';
+
+      const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a3' });
+
+      const titleH = 10;
+      const availW = pageW - margin * 2;
+      const availH = pageH - margin * 2 - titleH - 4;
+
+      const scaleToFitW = availW / imgPxW;
+      const scaleToFitH = availH / imgPxH;
+      const scale = Math.min(scaleToFitW, scaleToFitH);
+
+      const drawW = imgPxW * scale;
+      const drawH = imgPxH * scale;
+      const drawX = margin + (availW - drawW) / 2;
+      const drawY = margin + titleH + 4;
+
+      pdf.setFontSize(13);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`VCAA Design Tools — ${activeTabLabel}`, margin, margin + 6);
+      pdf.text(`VCAA Design Tools — ${activeTabLabel}`, margin, margin + titleH - 2);
 
-      const imgY = margin + 12;
-      const availH = pageH - imgY - margin;
-
-      if (contentH <= availH) {
-        pdf.addImage(imgData, 'PNG', margin, imgY, contentW, contentH);
-      } else {
-        const scale = availH / contentH;
-        pdf.addImage(imgData, 'PNG', margin, imgY, contentW * scale, availH);
-      }
+      pdf.addImage(imgData, 'PNG', drawX, drawY, drawW, drawH);
 
       const slug = activeTabLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
       pdf.save(`design_tools_${slug}.pdf`);
