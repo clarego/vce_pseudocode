@@ -536,7 +536,14 @@ function App() {
               <ReservedWordPanel onWordClick={(w) => { handleWordClick(w); setShowMobileWordPanel(false); }} />
             </div>
 
-            <div ref={containerRef} className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0">
+            {showLeaderboard && isLoggedIn && (
+            <div className="w-80 flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 space-y-4">
+              <Leaderboard currentUsername={loggedInUser} />
+              <SessionScorePanel scores={sessionScores} sessionTotal={sessionTotal} />
+            </div>
+          )}
+
+          <div ref={containerRef} className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0">
               <div
                 className="flex-1 sm:flex-none transition-none border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700"
                 style={(showConversion || showDesignTools) ? { width: `${100 - rightPanelWidth}%` } : { width: '100%' }}

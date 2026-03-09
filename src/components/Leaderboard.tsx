@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Trophy, RefreshCw, Medal, Clock } from 'lucide-react';
 import { fetchLeaderboard, LeaderboardEntry } from '../lib/scoringService';
+import { authDb } from '../lib/supabaseAuth';
 
 const MEDAL_COLORS = ['text-yellow-400', 'text-gray-400', 'text-amber-600'];
 const MEDAL_BG = ['bg-yellow-400/10', 'bg-gray-400/10', 'bg-amber-600/10'];
@@ -42,8 +43,17 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUsername }) => 
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 60_000);
-    return () => clearInterval(interval);
+
+    const channel = authDb
+      .channel('leaderboard-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard' }, () => {
+        load();
+      })
+      .subscribe();
+
+    return () => {
+      authDb.removeChannel(channel);
+    };
   }, [load]);
 
   return (
@@ -140,7 +150,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUsername }) => 
 
       <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900/40 border-t border-gray-100 dark:border-gray-700">
         <p className="text-xs text-gray-400 text-center">
-          Scores update automatically every minute. Best session score counts.
+          Scores update in real-time. Best session score counts.
         </p>
       </div>
     </div>
