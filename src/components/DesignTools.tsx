@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor, X, Copy, FileDown, Check } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor, X, Copy, FileDown, Check, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import type {
   DesignTools as DesignToolsData,
   FlowchartNode,
@@ -295,12 +295,53 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, error
   );
 };
 
+function ZoomableView({ children, svgW, svgH }: { children: React.ReactNode; svgW: number; svgH: number }) {
+  const [zoom, setZoom] = useState(1);
+  const minZoom = 0.25;
+  const maxZoom = 3;
+  const step = 0.2;
+
+  const zoomIn = useCallback(() => setZoom(z => Math.min(z + step, maxZoom)), []);
+  const zoomOut = useCallback(() => setZoom(z => Math.max(z - step, minZoom)), []);
+  const resetZoom = useCallback(() => setZoom(1), []);
+
+  return (
+    <div className="relative">
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-1">
+        <button onClick={zoomOut} disabled={zoom <= minZoom} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors" title="Zoom out">
+          <ZoomOut className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+        </button>
+        <span className="text-xs text-gray-500 dark:text-gray-400 w-10 text-center font-mono">{Math.round(zoom * 100)}%</span>
+        <button onClick={zoomIn} disabled={zoom >= maxZoom} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors" title="Zoom in">
+          <ZoomIn className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+        </button>
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+        <button onClick={resetZoom} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Reset zoom">
+          <Maximize2 className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+        </button>
+      </div>
+      <div className="overflow-auto rounded border border-gray-100 dark:border-gray-700/50">
+        <div style={{ width: svgW * zoom, height: svgH * zoom, minWidth: '100%' }}>
+          <svg
+            width={svgW * zoom}
+            height={svgH * zoom}
+            viewBox={`0 0 ${svgW} ${svgH}`}
+            style={{ display: 'block' }}
+          >
+            {children}
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const SHAPE_H = 48;
 const SHAPE_W = 180;
-const COL_CENTER = 250;
-const V_GAP = 64;
-const DECISION_H = 56;
-const BRANCH_INDENT = 200;
+const COL_CENTER = 300;
+const V_GAP = 80;
+const DECISION_H = 60;
+const BRANCH_INDENT = 260;
 
 interface NodeLayout {
   node: FlowchartNode;
@@ -533,19 +574,14 @@ function FlowchartView({ nodes }: { nodes: FlowchartNode[] }) {
           </div>
         ))}
       </div>
-      <div className="overflow-x-auto">
-        <svg
-          width={SVG_W}
-          height={totalH}
-          viewBox={`0 0 ${SVG_W} ${totalH}`}
-          className="text-gray-800 dark:text-gray-100 mx-auto"
-        >
+      <ZoomableView svgW={SVG_W} svgH={totalH}>
+        <g className="text-gray-800 dark:text-gray-100">
           {arrows}
           {layouts.map(layout => (
             <FlowchartShape key={layout.node.id} {...layout} />
           ))}
-        </svg>
-      </div>
+        </g>
+      </ZoomableView>
     </div>
   );
 }
@@ -659,16 +695,17 @@ function IpoChartView({ chart }: { chart: IpoChart }) {
 }
 
 const UC_RX = 90;
-const UC_RY = 30;
-const UC_ROW_GAP = 24;
-const SYSTEM_PAD_X = 48;
-const SYSTEM_PAD_Y = 40;
-const SYSTEM_TITLE_H = 32;
-const ACTOR_HEAD_R = 12;
-const ACTOR_BODY_H = 40;
-const ACTOR_ARM_W = 18;
-const ACTOR_LEG_H = 20;
-const ACTOR_TOTAL_H = ACTOR_HEAD_R * 2 + ACTOR_BODY_H + ACTOR_LEG_H + 20;
+const UC_RY = 32;
+const UC_COL_GAP = 36;
+const UC_ROW_GAP = 44;
+const SYSTEM_PAD_X = 56;
+const SYSTEM_PAD_Y = 50;
+const SYSTEM_TITLE_H = 36;
+const ACTOR_HEAD_R = 13;
+const ACTOR_BODY_H = 44;
+const ACTOR_ARM_W = 20;
+const ACTOR_LEG_H = 22;
+const ACTOR_TOTAL_H = ACTOR_HEAD_R * 2 + ACTOR_BODY_H + ACTOR_LEG_H + 24;
 
 interface UcdLayout {
   actors: (UcdActor & { cx: number; topY: number })[];
@@ -686,29 +723,29 @@ function layoutUcd(ucd: DesignToolsData['ucd']): UcdLayout {
   const rightActors = ucd.actors.filter(a => a.side === 'right');
   const ucCount = ucd.useCases.length;
 
-  const ucCols = ucCount <= 2 ? 1 : ucCount <= 6 ? 2 : 3;
+  const ucCols = ucCount <= 3 ? 1 : ucCount <= 8 ? 2 : 3;
   const ucRows = Math.ceil(ucCount / ucCols);
 
-  const innerW = ucCols * (UC_RX * 2) + (ucCols - 1) * 20;
+  const innerW = ucCols * (UC_RX * 2) + (ucCols - 1) * UC_COL_GAP;
   const innerH = ucRows * (UC_RY * 2) + (ucRows - 1) * UC_ROW_GAP;
   const systemW = innerW + SYSTEM_PAD_X * 2;
   const systemH = innerH + SYSTEM_PAD_Y * 2 + SYSTEM_TITLE_H;
 
   const maxActorCount = Math.max(leftActors.length, rightActors.length, 1);
-  const actorGroupH = maxActorCount * ACTOR_TOTAL_H + (maxActorCount - 1) * 24;
-  const totalH = Math.max(actorGroupH, systemH) + 80;
+  const actorGroupH = maxActorCount * ACTOR_TOTAL_H + (maxActorCount - 1) * 28;
+  const totalH = Math.max(actorGroupH, systemH) + 100;
 
   const systemY = (totalH - systemH) / 2;
-  const actorColW = ACTOR_HEAD_R * 2 + 20;
-  const systemX = actorColW + 60;
-  const rightX = systemX + systemW + 60;
-  const totalW = rightX + actorColW + 40;
+  const actorColW = ACTOR_HEAD_R * 2 + 24;
+  const systemX = actorColW + 70;
+  const rightX = systemX + systemW + 70;
+  const totalW = rightX + actorColW + 50;
 
   const placeActors = (actors: UcdActor[], baseX: number) =>
     actors.map((a, i) => {
-      const totalGroupH = actors.length * ACTOR_TOTAL_H + (actors.length - 1) * 24;
+      const totalGroupH = actors.length * ACTOR_TOTAL_H + (actors.length - 1) * 28;
       const startY = (totalH - totalGroupH) / 2;
-      return { ...a, cx: baseX, topY: startY + i * (ACTOR_TOTAL_H + 24) };
+      return { ...a, cx: baseX, topY: startY + i * (ACTOR_TOTAL_H + 28) };
     });
 
   const placedLeft = placeActors(leftActors, actorColW / 2 + 20);
@@ -722,7 +759,7 @@ function layoutUcd(ucd: DesignToolsData['ucd']): UcdLayout {
     const row = Math.floor(i / ucCols);
     return {
       ...uc,
-      cx: ucStartX + col * (UC_RX * 2 + 20),
+      cx: ucStartX + col * (UC_RX * 2 + UC_COL_GAP),
       cy: ucStartY + row * (UC_RY * 2 + UC_ROW_GAP),
     };
   });
@@ -841,61 +878,59 @@ function UcdView({ ucd }: { ucd: DesignToolsData['ucd'] }) {
           </div>
         ))}
       </div>
-      <div className="overflow-x-auto">
-        <svg width={layout.totalW} height={layout.totalH} viewBox={`0 0 ${layout.totalW} ${layout.totalH}`} className="mx-auto">
-          <rect x={layout.systemX} y={layout.systemY} width={layout.systemW} height={layout.systemH}
-            fill="none" stroke="#9ca3af" strokeWidth="2" />
-          <text x={layout.systemX + layout.systemW / 2} y={layout.systemY + 20}
-            textAnchor="middle" fontSize="14" fontWeight="bold" fill="#111827" className="dark:fill-gray-100">
-            {ucd.systemName}
-          </text>
-          <line x1={layout.systemX} y1={layout.systemY + SYSTEM_TITLE_H}
-            x2={layout.systemX + layout.systemW} y2={layout.systemY + SYSTEM_TITLE_H}
-            stroke="#d1d5db" strokeWidth="1" />
+      <ZoomableView svgW={layout.totalW} svgH={layout.totalH}>
+        <rect x={layout.systemX} y={layout.systemY} width={layout.systemW} height={layout.systemH}
+          fill="none" stroke="#9ca3af" strokeWidth="2" />
+        <text x={layout.systemX + layout.systemW / 2} y={layout.systemY + 22}
+          textAnchor="middle" fontSize="14" fontWeight="bold" fill="#111827" className="dark:fill-gray-100">
+          {ucd.systemName}
+        </text>
+        <line x1={layout.systemX} y1={layout.systemY + SYSTEM_TITLE_H}
+          x2={layout.systemX + layout.systemW} y2={layout.systemY + SYSTEM_TITLE_H}
+          stroke="#d1d5db" strokeWidth="1" />
 
-          {relationshipLines}
+        {relationshipLines}
 
-          {layout.actors.map(actor => {
-            const cx = actor.cx;
-            const headCY = actor.topY + ACTOR_HEAD_R;
-            const neckY = headCY + ACTOR_HEAD_R;
-            const bodyBotY = neckY + ACTOR_BODY_H;
-            const armY = neckY + ACTOR_BODY_H * 0.35;
-            const labelY = bodyBotY + ACTOR_LEG_H + 16;
-            return (
-              <g key={actor.id}>
-                <circle cx={cx} cy={headCY} r={ACTOR_HEAD_R} fill="none" stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <line x1={cx} y1={neckY} x2={cx} y2={bodyBotY} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <line x1={cx - ACTOR_ARM_W} y1={armY} x2={cx + ACTOR_ARM_W} y2={armY} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <line x1={cx} y1={bodyBotY} x2={cx - 14} y2={bodyBotY + ACTOR_LEG_H} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <line x1={cx} y1={bodyBotY} x2={cx + 14} y2={bodyBotY + ACTOR_LEG_H} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <text x={cx} y={labelY} textAnchor="middle" fontSize="11" fontWeight="600" fill="#111827" className="dark:fill-gray-100">{actor.name}</text>
-              </g>
-            );
-          })}
+        {layout.actors.map(actor => {
+          const cx = actor.cx;
+          const headCY = actor.topY + ACTOR_HEAD_R;
+          const neckY = headCY + ACTOR_HEAD_R;
+          const bodyBotY = neckY + ACTOR_BODY_H;
+          const armY = neckY + ACTOR_BODY_H * 0.35;
+          const labelY = bodyBotY + ACTOR_LEG_H + 16;
+          return (
+            <g key={actor.id}>
+              <circle cx={cx} cy={headCY} r={ACTOR_HEAD_R} fill="none" stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+              <line x1={cx} y1={neckY} x2={cx} y2={bodyBotY} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+              <line x1={cx - ACTOR_ARM_W} y1={armY} x2={cx + ACTOR_ARM_W} y2={armY} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+              <line x1={cx} y1={bodyBotY} x2={cx - 14} y2={bodyBotY + ACTOR_LEG_H} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+              <line x1={cx} y1={bodyBotY} x2={cx + 14} y2={bodyBotY + ACTOR_LEG_H} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+              <text x={cx} y={labelY} textAnchor="middle" fontSize="11" fontWeight="600" fill="#111827" className="dark:fill-gray-100">{actor.name}</text>
+            </g>
+          );
+        })}
 
-          {layout.useCases.map(uc => {
-            const lines = wrapText(uc.label, 18);
-            const lineH = 13;
-            const totalTextH = lines.length * lineH;
-            return (
-              <g key={uc.id}>
-                <ellipse cx={uc.cx} cy={uc.cy} rx={UC_RX} ry={UC_RY}
-                  fill="#f0f9ff" stroke="#0284c7" strokeWidth="1.5"
-                  className="dark:fill-sky-900/60 dark:stroke-sky-400" />
-                {lines.map((line, li) => (
-                  <text key={li}
-                    x={uc.cx}
-                    y={uc.cy - totalTextH / 2 + li * lineH + lineH * 0.8}
-                    textAnchor="middle" fontSize="11" fill="#0c4a6e" className="dark:fill-sky-100">
-                    {line}
-                  </text>
-                ))}
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+        {layout.useCases.map(uc => {
+          const lines = wrapText(uc.label, 18);
+          const lineH = 14;
+          const totalTextH = lines.length * lineH;
+          return (
+            <g key={uc.id}>
+              <ellipse cx={uc.cx} cy={uc.cy} rx={UC_RX} ry={UC_RY}
+                fill="#f0f9ff" stroke="#0284c7" strokeWidth="1.5"
+                className="dark:fill-sky-900/60 dark:stroke-sky-400" />
+              {lines.map((line, li) => (
+                <text key={li}
+                  x={uc.cx}
+                  y={uc.cy - totalTextH / 2 + li * lineH + lineH * 0.8}
+                  textAnchor="middle" fontSize="11" fill="#0c4a6e" className="dark:fill-sky-100">
+                  {line}
+                </text>
+              ))}
+            </g>
+          );
+        })}
+      </ZoomableView>
     </div>
   );
 }
@@ -1027,39 +1062,58 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto">
+      <ZoomableView svgW={svgW} svgH={svgH}>
           <defs>
             <marker id={markerId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
             </marker>
           </defs>
 
-          {level.flows.map((flow, fi) => {
-            const fromNode = nodeMap.get(flow.from);
-            const toNode = nodeMap.get(flow.to);
-            if (!fromNode || !toNode) return null;
-            const fp = dfdEdgePoint(fromNode, toNode);
-            const tp = dfdEdgePoint(toNode, fromNode);
-            const midX = (fp.x + tp.x) / 2;
-            const midY = (fp.y + tp.y) / 2;
-            const labelW = flow.label.length * 5.5 + 8;
-            return (
-              <g key={fi}>
-                <line x1={fp.x} y1={fp.y} x2={tp.x} y2={tp.y}
-                  stroke="#6b7280" strokeWidth="1.5"
-                  markerEnd={`url(#${markerId})`} />
-                <rect x={midX - labelW / 2} y={midY - 9} width={labelW} height={16}
-                  rx="3" fill="white" fillOpacity="0.92" stroke="#d1d5db" strokeWidth="0.5"
-                  className="dark:fill-gray-900" />
-                <text x={midX} y={midY + 2}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize="9" fontFamily="monospace" fill="#374151" className="dark:fill-gray-300">
-                  {flow.label}
-                </text>
-              </g>
-            );
-          })}
+          {(() => {
+            const pairCounts = new Map<string, number>();
+            const pairIdx = new Map<string, number>();
+            level.flows.forEach(f => {
+              const key = [f.from, f.to].sort().join('|');
+              pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+            });
+            return level.flows.map((flow, fi) => {
+              const fromNode = nodeMap.get(flow.from);
+              const toNode = nodeMap.get(flow.to);
+              if (!fromNode || !toNode) return null;
+              const pairKey = [flow.from, flow.to].sort().join('|');
+              const total = pairCounts.get(pairKey) ?? 1;
+              const idx = pairIdx.get(pairKey) ?? 0;
+              pairIdx.set(pairKey, idx + 1);
+
+              const fp = dfdEdgePoint(fromNode, toNode);
+              const tp = dfdEdgePoint(toNode, fromNode);
+              const dx = tp.x - fp.x;
+              const dy = tp.y - fp.y;
+              const len = Math.sqrt(dx * dx + dy * dy) || 1;
+              const nx = -dy / len;
+              const ny = dx / len;
+              const offset = total > 1 ? (idx - (total - 1) / 2) * 28 : 0;
+              const cx = (fp.x + tp.x) / 2 + nx * offset;
+              const cy = (fp.y + tp.y) / 2 + ny * offset;
+              const labelW = flow.label.length * 5.5 + 10;
+              const path = total > 1
+                ? `M${fp.x},${fp.y} Q${cx},${cy} ${tp.x},${tp.y}`
+                : `M${fp.x},${fp.y} L${tp.x},${tp.y}`;
+              return (
+                <g key={fi}>
+                  <path d={path} fill="none" stroke="#6b7280" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />
+                  <rect x={cx - labelW / 2} y={cy - 9} width={labelW} height={16}
+                    rx="3" fill="white" fillOpacity="0.95" stroke="#d1d5db" strokeWidth="0.5"
+                    className="dark:fill-gray-900" />
+                  <text x={cx} y={cy + 2}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize="9" fontFamily="monospace" fill="#374151" className="dark:fill-gray-300">
+                    {flow.label}
+                  </text>
+                </g>
+              );
+            });
+          })()}
 
           {nodes.map(({ el, x, y }) => {
             if (el.type === 'external_entity') {
@@ -1118,8 +1172,7 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
             }
             return null;
           })}
-        </svg>
-      </div>
+      </ZoomableView>
     </div>
   );
 }
