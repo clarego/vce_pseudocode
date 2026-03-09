@@ -12,6 +12,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { SessionScorePanel } from './components/SessionScorePanel';
 import { templates } from './data/templates';
 import { createSession, upsertLeaderboard, getSessionScores, QuestionScore } from './lib/scoringService';
+import { fetchOpenAIKey } from './lib/supabaseAuth';
 import { pseudocodeToCode, codeToPseudocode } from './utils/converters';
 import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode, aiGenerateDesignTools } from './utils/aiService';
 import type { DesignTools as DesignToolsData } from './utils/aiService';
@@ -33,13 +34,13 @@ function App() {
 
   const [showLogin, setShowLogin] = useState(false);
   const [loginReason, setLoginReason] = useState<string | undefined>(undefined);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('session_username'));
+  const [loggedInUser, setLoggedInUser] = useState(() => localStorage.getItem('session_username') ?? '');
   const [openAiKey, setOpenAiKey] = useState<string | null>(null);
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('unchecked');
   const [aiLoading, setAiLoading] = useState(false);
 
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem('session_id'));
   const [sessionScores, setSessionScores] = useState<QuestionScore[]>([]);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -88,6 +89,20 @@ function App() {
     document.documentElement.classList.toggle('hacker', theme === 'hacker');
   }, [theme]);
 
+  useEffect(() => {
+    const savedUser = localStorage.getItem('session_username');
+    if (savedUser && !openAiKey) {
+      fetchOpenAIKey().then(key => {
+        if (key) {
+          setOpenAiKey(key);
+          setApiKeyStatus('valid');
+        } else {
+          setApiKeyStatus('invalid');
+        }
+      });
+    }
+  }, []);
+
   const handleLoginSuccess = async (key: string | null, username: string) => {
     setIsLoggedIn(true);
     setLoggedInUser(username);
@@ -105,6 +120,8 @@ function App() {
 
     const newSessionId = await createSession(username);
     setSessionId(newSessionId);
+    localStorage.setItem('session_username', username);
+    if (newSessionId) localStorage.setItem('session_id', newSessionId);
   };
 
   const handleLogout = async () => {
@@ -118,6 +135,8 @@ function App() {
     setSessionId(null);
     setSessionScores([]);
     setSessionTotal(0);
+    localStorage.removeItem('session_username');
+    localStorage.removeItem('session_id');
     localStorage.removeItem('pseudocode_remembered_user');
   };
 
