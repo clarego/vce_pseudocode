@@ -42,29 +42,83 @@ function getTabTextContent(tab: Tab, data: DesignToolsData): string {
   if (tab === 'flowchart' && data.flowchart) {
     const nodes = data.flowchart;
     const idToIndex = new Map(nodes.map((n, i) => [n.id, i + 1]));
-    const shapeLabel = (type: string) => {
+
+    const centre = (s: string, w: number) => {
+      const total = Math.max(0, w - s.length);
+      const left = Math.floor(total / 2);
+      const right = total - left;
+      return ' '.repeat(left) + s + ' '.repeat(right);
+    };
+
+    const renderShape = (type: string, label: string): string[] => {
+      const inner = label.length > 40 ? label.substring(0, 37) + '...' : label;
+      const w = Math.max(inner.length + 4, 20);
+      const innerW = w - 2;
+
       switch (type) {
-        case 'terminal': return 'Terminal';
-        case 'process': return 'Process';
-        case 'decision': return 'Decision';
-        case 'io': return 'Input/Output';
-        case 'predefined': return 'Predefined Process';
-        default: return type;
+        case 'terminal': {
+          const top    = '╭' + '─'.repeat(innerW) + '╮';
+          const mid    = '│' + centre(inner, innerW) + '│';
+          const bottom = '╰' + '─'.repeat(innerW) + '╯';
+          return [top, mid, bottom];
+        }
+        case 'process': {
+          const top    = '┌' + '─'.repeat(innerW) + '┐';
+          const mid    = '│' + centre(inner, innerW) + '│';
+          const bottom = '└' + '─'.repeat(innerW) + '┘';
+          return [top, mid, bottom];
+        }
+        case 'predefined': {
+          const top    = '┌' + '─'.repeat(innerW) + '┐';
+          const mid    = '║' + centre(inner, innerW) + '║';
+          const bottom = '└' + '─'.repeat(innerW) + '┘';
+          return [top, mid, bottom];
+        }
+        case 'io': {
+          const slantW = 2;
+          const top    = '/' + ' '.repeat(slantW) + '─'.repeat(w - 2) + ' '.repeat(slantW) + '\\';
+          const mid    = '/' + ' ' + centre(inner, w) + ' ' + '\\';
+          const bottom = '\\' + ' '.repeat(slantW) + '─'.repeat(w - 2) + ' '.repeat(slantW) + '/';
+          return [top, mid, bottom];
+        }
+        case 'decision': {
+          const halfW = Math.max(Math.ceil(inner.length / 2) + 3, 12);
+          const fullW = halfW * 2;
+          const topRow    = ' '.repeat(halfW) + '◇';
+          const midRow    = '◇' + centre(inner, fullW - 1) + '◇';
+          const bottomRow = ' '.repeat(halfW) + '◇';
+          return [topRow, midRow, bottomRow];
+        }
+        default: {
+          const top    = '┌' + '─'.repeat(innerW) + '┐';
+          const mid    = '│' + centre(inner, innerW) + '│';
+          const bottom = '└' + '─'.repeat(innerW) + '┘';
+          return [top, mid, bottom];
+        }
       }
     };
+
     lines.push('FLOWCHART');
     lines.push('='.repeat(50));
+    lines.push('');
+
     nodes.forEach((n, i) => {
-      const step = i + 1;
-      lines.push('');
-      lines.push(`Step ${step} [${shapeLabel(n.type)}]`);
-      lines.push(`  ${n.label}`);
+      const shapeLines = renderShape(n.type, n.label);
+      const stepLabel = `  Step ${i + 1}`;
+      lines.push(stepLabel);
+      shapeLines.forEach(sl => lines.push('  ' + sl));
+
       if (n.type === 'decision') {
-        if (n.yes) lines.push(`  YES  →  Step ${idToIndex.get(n.yes) ?? n.yes}`);
-        if (n.no)  lines.push(`  NO   →  Step ${idToIndex.get(n.no)  ?? n.no}`);
+        const yesStep = n.yes ? idToIndex.get(n.yes) ?? n.yes : null;
+        const noStep  = n.no  ? idToIndex.get(n.no)  ?? n.no  : null;
+        if (yesStep) lines.push(`  │ YES ──────────────► Step ${yesStep}`);
+        if (noStep)  lines.push(`  │ NO  ──────────────► Step ${noStep}`);
       } else if (n.next) {
-        lines.push(`  →  Step ${idToIndex.get(n.next) ?? n.next}`);
+        const nextStep = idToIndex.get(n.next) ?? n.next;
+        lines.push('  │');
+        lines.push(`  ▼  ──► Step ${nextStep}`);
       }
+      lines.push('');
     });
   }
 
