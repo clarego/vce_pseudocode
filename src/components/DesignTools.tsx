@@ -1306,98 +1306,118 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
         </div>
       </div>
 
-      <ZoomableView svgW={svgW} svgH={svgH}>
-          <defs>
-            <marker id={markerId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
-            </marker>
-          </defs>
+      {(() => {
+        const pairCounts = new Map<string, number>();
+        const pairIdx = new Map<string, number>();
+        level.flows.forEach(f => {
+          const key = [f.from, f.to].sort().join('|');
+          pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+        });
 
-          {(() => {
-            const pairCounts = new Map<string, number>();
-            const pairIdx = new Map<string, number>();
-            level.flows.forEach(f => {
-              const key = [f.from, f.to].sort().join('|');
-              pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
-            });
+        type FlowRenderData = { fi: number; lx: number; ly: number; label: string };
+        const edgePaths: React.ReactNode[] = [];
+        const labelData: FlowRenderData[] = [];
 
-            type FlowRenderData = {
-              fi: number;
-              path: string;
-              lx: number;
-              ly: number;
-              label: string;
-            };
+        level.flows.forEach((flow, fi) => {
+          const fromNode = nodeMap.get(flow.from);
+          const toNode = nodeMap.get(flow.to);
+          if (!fromNode || !toNode) return;
+          const pairKey = [flow.from, flow.to].sort().join('|');
+          const total = pairCounts.get(pairKey) ?? 1;
+          const idx = pairIdx.get(pairKey) ?? 0;
+          pairIdx.set(pairKey, idx + 1);
 
-            const lines: React.ReactNode[] = [];
-            const labelData: FlowRenderData[] = [];
+          const fp = dfdEdgePoint(fromNode, toNode);
+          const tp = dfdEdgePoint(toNode, fromNode);
+          const dx = tp.x - fp.x;
+          const dy = tp.y - fp.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          const nx = -dy / len;
+          const ny = dx / len;
 
-            level.flows.forEach((flow, fi) => {
-              const fromNode = nodeMap.get(flow.from);
-              const toNode = nodeMap.get(flow.to);
-              if (!fromNode || !toNode) return;
-              const pairKey = [flow.from, flow.to].sort().join('|');
-              const total = pairCounts.get(pairKey) ?? 1;
-              const idx = pairIdx.get(pairKey) ?? 0;
-              pairIdx.set(pairKey, idx + 1);
+          const curvOffset = total > 1 ? (idx - (total - 1) / 2) * 44 : 0;
+          const cpx = (fp.x + tp.x) / 2 + nx * curvOffset;
+          const cpy = (fp.y + tp.y) / 2 + ny * curvOffset;
 
-              const fp = dfdEdgePoint(fromNode, toNode);
-              const tp = dfdEdgePoint(toNode, fromNode);
-              const dx = tp.x - fp.x;
-              const dy = tp.y - fp.y;
-              const len = Math.sqrt(dx * dx + dy * dy) || 1;
-              const nx = -dy / len;
-              const ny = dx / len;
+          const pathStr = total > 1
+            ? `M${fp.x},${fp.y} Q${cpx},${cpy} ${tp.x},${tp.y}`
+            : `M${fp.x},${fp.y} L${tp.x},${tp.y}`;
 
-              const curvOffset = total > 1 ? (idx - (total - 1) / 2) * 36 : 0;
-              const cpx = (fp.x + tp.x) / 2 + nx * curvOffset;
-              const cpy = (fp.y + tp.y) / 2 + ny * curvOffset;
+          edgePaths.push(
+            <path key={fi} d={pathStr} fill="none" stroke="#6b7280" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />
+          );
 
-              const pathStr = total > 1
-                ? `M${fp.x},${fp.y} Q${cpx},${cpy} ${tp.x},${tp.y}`
-                : `M${fp.x},${fp.y} L${tp.x},${tp.y}`;
+          const t = 0.5;
+          let lx: number, ly: number;
+          if (total > 1) {
+            lx = (1-t)*(1-t)*fp.x + 2*(1-t)*t*cpx + t*t*tp.x;
+            ly = (1-t)*(1-t)*fp.y + 2*(1-t)*t*cpy + t*t*tp.y;
+          } else {
+            lx = fp.x + t * dx;
+            ly = fp.y + t * dy;
+          }
+          lx += nx * 14;
+          ly += ny * 14;
 
-              lines.push(
-                <path key={fi} d={pathStr} fill="none" stroke="#6b7280" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />
-              );
+          labelData.push({ fi, lx, ly, label: flow.label });
+        });
 
-              const t = 0.25;
-              let lx: number, ly: number;
-              if (total > 1) {
-                lx = (1 - t) * (1 - t) * fp.x + 2 * (1 - t) * t * cpx + t * t * tp.x;
-                ly = (1 - t) * (1 - t) * fp.y + 2 * (1 - t) * t * cpy + t * t * tp.y;
-              } else {
-                lx = fp.x + t * dx;
-                ly = fp.y + t * dy;
+        const LABEL_H = 18;
+        const LABEL_CHAR_W = 6;
+        const LABEL_PAD = 14;
+        const MIN_SEP = 4;
+        const getLabelW = (lbl: string) => lbl.length * LABEL_CHAR_W + LABEL_PAD;
+
+        const resolved = labelData.map(d => ({ ...d }));
+        for (let pass = 0; pass < 8; pass++) {
+          for (let i = 0; i < resolved.length; i++) {
+            for (let j = i + 1; j < resolved.length; j++) {
+              const a = resolved[i];
+              const b = resolved[j];
+              const aw = getLabelW(a.label);
+              const bw = getLabelW(b.label);
+              const overlapX = (aw + bw) / 2 + MIN_SEP - Math.abs(a.lx - b.lx);
+              const overlapY = LABEL_H + MIN_SEP - Math.abs(a.ly - b.ly);
+              if (overlapX > 0 && overlapY > 0) {
+                const push = overlapY / 2 + 1;
+                if (a.ly <= b.ly) {
+                  resolved[i] = { ...a, ly: a.ly - push };
+                  resolved[j] = { ...b, ly: b.ly + push };
+                } else {
+                  resolved[i] = { ...a, ly: a.ly + push };
+                  resolved[j] = { ...b, ly: b.ly - push };
+                }
               }
+            }
+          }
+        }
 
-              lx += nx * curvOffset * 0.3;
-              ly += ny * curvOffset * 0.3;
+        const labelEls = resolved.map(({ fi, lx, ly, label }) => {
+          const lw = getLabelW(label);
+          return (
+            <g key={`lbl-${fi}`}>
+              <rect x={lx - lw/2} y={ly - LABEL_H/2} width={lw} height={LABEL_H}
+                rx="3" fill="#0f172a" fillOpacity="0.93" stroke="#334155" strokeWidth="0.8"
+                className="dark:fill-gray-900 dark:stroke-gray-600" />
+              <text x={lx} y={ly + 1} textAnchor="middle" dominantBaseline="middle"
+                fontSize="9.5" fontFamily="monospace" fill="#e2e8f0" className="dark:fill-gray-200">
+                {label}
+              </text>
+            </g>
+          );
+        });
 
-              labelData.push({ fi, path: pathStr, lx, ly, label: flow.label });
-            });
+        return (
+          <ZoomableView svgW={svgW} svgH={svgH}>
+            <defs>
+              <marker id={markerId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
+              </marker>
+            </defs>
 
-            const labelEls = labelData.map(({ fi, lx, ly, label }) => {
-              const labelW = label.length * 5.8 + 12;
-              const labelH = 17;
-              return (
-                <g key={`lbl-${fi}`}>
-                  <rect x={lx - labelW / 2} y={ly - labelH / 2} width={labelW} height={labelH}
-                    rx="3" fill="white" fillOpacity="0.97" stroke="#d1d5db" strokeWidth="0.8"
-                    className="dark:fill-gray-900 dark:stroke-gray-600" />
-                  <text x={lx} y={ly + 1}
-                    textAnchor="middle" dominantBaseline="middle"
-                    fontSize="9" fontFamily="monospace" fill="#374151" className="dark:fill-gray-200">
-                    {label}
-                  </text>
-                </g>
-              );
-            });
+            {edgePaths}
 
-            return <>{lines}{labelEls}</>;
-          })()}
-
-          {nodes.map(({ el, x, y }) => {
+            {nodes.map(({ el, x, y }) => {
             if (el.type === 'external_entity') {
               return (
                 <g key={el.id}>
@@ -1454,7 +1474,11 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
             }
             return null;
           })}
-      </ZoomableView>
+
+            {labelEls}
+          </ZoomableView>
+        );
+      })()}
     </div>
   );
 }
