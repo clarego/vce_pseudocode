@@ -974,11 +974,13 @@ const DFD_LEVEL_COLORS: Record<number, { bg: string; border: string; label: stri
   2: { bg: 'bg-teal-50 dark:bg-teal-950', border: 'border-teal-200 dark:border-teal-700', label: 'Level 2 DFD' },
 };
 
-const EE_W = 110;
-const EE_H = 46;
-const PROC_R = 46;
-const DS_W = 140;
-const DS_H = 38;
+const EE_W = 120;
+const EE_H = 50;
+const PROC_R = 52;
+const DS_W = 150;
+const DS_H = 40;
+const PROC_COL_W = PROC_R * 2 + 100;
+const PROC_ROW_H = PROC_R * 2 + 100;
 
 interface DfdNodePos {
   el: DfdElement;
@@ -992,29 +994,28 @@ function computeDfdLayout(level: DfdLevel): { nodes: DfdNodePos[]; svgW: number;
   const dss = level.elements.filter(e => e.type === 'data_store');
   const nodes: DfdNodePos[] = [];
 
-  const PROC_COL_W = PROC_R * 2 + 40;
-  const DS_COL_W = DS_W + 40;
-  const EE_SIDE_W = EE_W + 60;
+  const DS_COL_W = DS_W + 60;
+  const EE_SIDE_W = EE_W + 80;
 
   const procCols = Math.min(procs.length, 3);
   const procRows = Math.ceil(procs.length / procCols);
   const procZoneW = procCols * PROC_COL_W;
-  const procZoneH = procRows * (PROC_R * 2 + 50);
+  const procZoneH = procRows * PROC_ROW_H;
 
   const dsRows = Math.ceil(dss.length / Math.max(1, Math.min(dss.length, 3)));
-  const dsZoneH = dsRows * (DS_H + 30);
+  const dsZoneH = dsRows * (DS_H + 50);
 
-  const totalInnerH = procZoneH + (dss.length > 0 ? dsZoneH + 40 : 0);
-  const svgH = Math.max(380, totalInnerH + 120);
-  const svgW = Math.max(640, EE_SIDE_W * 2 + procZoneW + 80);
+  const totalInnerH = procZoneH + (dss.length > 0 ? dsZoneH + 60 : 0);
+  const svgH = Math.max(440, totalInnerH + 140);
+  const svgW = Math.max(700, EE_SIDE_W * 2 + procZoneW + 100);
 
   const procOffsetX = (svgW - procZoneW) / 2 + PROC_R;
-  const procOffsetY = (dss.length > 0 ? 80 : (svgH - procZoneH) / 2) + PROC_R;
+  const procOffsetY = 80 + PROC_R;
 
   procs.forEach((p, i) => {
     const col = i % procCols;
     const row = Math.floor(i / procCols);
-    nodes.push({ el: p, x: procOffsetX + col * PROC_COL_W, y: procOffsetY + row * (PROC_R * 2 + 50) });
+    nodes.push({ el: p, x: procOffsetX + col * PROC_COL_W, y: procOffsetY + row * PROC_ROW_H });
   });
 
   dss.forEach((d, i) => {
@@ -1023,7 +1024,7 @@ function computeDfdLayout(level: DfdLevel): { nodes: DfdNodePos[]; svgW: number;
     const row = Math.floor(i / cols);
     const dsZoneW = cols * DS_COL_W;
     const dsOffsetX = (svgW - dsZoneW) / 2 + DS_W / 2;
-    nodes.push({ el: d, x: dsOffsetX + col * DS_COL_W, y: procOffsetY + procZoneH + 60 + row * (DS_H + 30) });
+    nodes.push({ el: d, x: dsOffsetX + col * DS_COL_W, y: procOffsetY + procZoneH + 70 + row * (DS_H + 50) });
   });
 
   const leftEes = ees.slice(0, Math.ceil(ees.length / 2));
@@ -1109,10 +1110,22 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
               const key = [f.from, f.to].sort().join('|');
               pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
             });
-            return level.flows.map((flow, fi) => {
+
+            type FlowRenderData = {
+              fi: number;
+              path: string;
+              lx: number;
+              ly: number;
+              label: string;
+            };
+
+            const lines: React.ReactNode[] = [];
+            const labelData: FlowRenderData[] = [];
+
+            level.flows.forEach((flow, fi) => {
               const fromNode = nodeMap.get(flow.from);
               const toNode = nodeMap.get(flow.to);
-              if (!fromNode || !toNode) return null;
+              if (!fromNode || !toNode) return;
               const pairKey = [flow.from, flow.to].sort().join('|');
               const total = pairCounts.get(pairKey) ?? 1;
               const idx = pairIdx.get(pairKey) ?? 0;
@@ -1125,27 +1138,53 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
               const len = Math.sqrt(dx * dx + dy * dy) || 1;
               const nx = -dy / len;
               const ny = dx / len;
-              const offset = total > 1 ? (idx - (total - 1) / 2) * 28 : 0;
-              const cx = (fp.x + tp.x) / 2 + nx * offset;
-              const cy = (fp.y + tp.y) / 2 + ny * offset;
-              const labelW = flow.label.length * 5.5 + 10;
-              const path = total > 1
-                ? `M${fp.x},${fp.y} Q${cx},${cy} ${tp.x},${tp.y}`
+
+              const curvOffset = total > 1 ? (idx - (total - 1) / 2) * 36 : 0;
+              const cpx = (fp.x + tp.x) / 2 + nx * curvOffset;
+              const cpy = (fp.y + tp.y) / 2 + ny * curvOffset;
+
+              const pathStr = total > 1
+                ? `M${fp.x},${fp.y} Q${cpx},${cpy} ${tp.x},${tp.y}`
                 : `M${fp.x},${fp.y} L${tp.x},${tp.y}`;
+
+              lines.push(
+                <path key={fi} d={pathStr} fill="none" stroke="#6b7280" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />
+              );
+
+              const t = 0.25;
+              let lx: number, ly: number;
+              if (total > 1) {
+                lx = (1 - t) * (1 - t) * fp.x + 2 * (1 - t) * t * cpx + t * t * tp.x;
+                ly = (1 - t) * (1 - t) * fp.y + 2 * (1 - t) * t * cpy + t * t * tp.y;
+              } else {
+                lx = fp.x + t * dx;
+                ly = fp.y + t * dy;
+              }
+
+              lx += nx * curvOffset * 0.3;
+              ly += ny * curvOffset * 0.3;
+
+              labelData.push({ fi, path: pathStr, lx, ly, label: flow.label });
+            });
+
+            const labelEls = labelData.map(({ fi, lx, ly, label }) => {
+              const labelW = label.length * 5.8 + 12;
+              const labelH = 17;
               return (
-                <g key={fi}>
-                  <path d={path} fill="none" stroke="#6b7280" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />
-                  <rect x={cx - labelW / 2} y={cy - 9} width={labelW} height={16}
-                    rx="3" fill="white" fillOpacity="0.95" stroke="#d1d5db" strokeWidth="0.5"
-                    className="dark:fill-gray-900" />
-                  <text x={cx} y={cy + 2}
+                <g key={`lbl-${fi}`}>
+                  <rect x={lx - labelW / 2} y={ly - labelH / 2} width={labelW} height={labelH}
+                    rx="3" fill="white" fillOpacity="0.97" stroke="#d1d5db" strokeWidth="0.8"
+                    className="dark:fill-gray-900 dark:stroke-gray-600" />
+                  <text x={lx} y={ly + 1}
                     textAnchor="middle" dominantBaseline="middle"
-                    fontSize="9" fontFamily="monospace" fill="#374151" className="dark:fill-gray-300">
-                    {flow.label}
+                    fontSize="9" fontFamily="monospace" fill="#374151" className="dark:fill-gray-200">
+                    {label}
                   </text>
                 </g>
               );
             });
+
+            return <>{lines}{labelEls}</>;
           })()}
 
           {nodes.map(({ el, x, y }) => {
@@ -1163,17 +1202,17 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
               );
             }
             if (el.type === 'process') {
-              const lines = wrapText(el.label, 14);
-              const lineH = 12;
+              const lines = wrapText(el.label, 13);
+              const lineH = 13;
               const totalTextH = lines.length * lineH;
               return (
                 <g key={el.id}>
                   <circle cx={x} cy={y} r={PROC_R}
-                    fill="#e0f2fe" stroke="#0284c7" strokeWidth="1.5"
+                    fill="#e0f2fe" stroke="#0284c7" strokeWidth="2"
                     className="dark:fill-sky-900 dark:stroke-sky-500" />
                   {lines.map((line, li) => (
                     <text key={li} x={x} y={y - totalTextH / 2 + li * lineH + lineH * 0.8}
-                      textAnchor="middle" fontSize="10" fill="#0c4a6e" className="dark:fill-sky-100">
+                      textAnchor="middle" fontSize="10" fontWeight="500" fill="#0c4a6e" className="dark:fill-sky-100">
                       {line}
                     </text>
                   ))}
@@ -1183,7 +1222,7 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
             if (el.type === 'data_store') {
               const left = x - DS_W / 2;
               const top = y - DS_H / 2;
-              const tabW = 26;
+              const tabW = 28;
               return (
                 <g key={el.id}>
                   <rect x={left} y={top} width={DS_W} height={DS_H}
