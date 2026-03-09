@@ -294,32 +294,71 @@ interface NodeLayout {
 }
 
 function buildFlowchartLayout(nodes: FlowchartNode[]): { layouts: NodeLayout[]; totalH: number } {
-  const map = new Map(nodes.map(n => [n.id, n]));
-  const visited = new Set<string>();
-  const layouts: NodeLayout[] = [];
-  let currentY = 40;
+  if (nodes.length === 0) return { layouts: [], totalH: 0 };
 
-  const place = (id: string, x: number) => {
-    if (!id || visited.has(id)) return;
+  const map = new Map(nodes.map(n => [n.id, n]));
+
+  const inDegree = new Map<string, number>();
+  nodes.forEach(n => inDegree.set(n.id, 0));
+  nodes.forEach(n => {
+    const succs = [n.next, n.yes, n.no].filter(Boolean) as string[];
+    succs.forEach(s => { if (map.has(s)) inDegree.set(s, (inDegree.get(s) ?? 0) + 1); });
+  });
+
+  const nodeH = (n: FlowchartNode) => (n.type === 'decision' ? DECISION_H : SHAPE_H);
+
+  const rank = new Map<string, number>();
+  const queue: string[] = [];
+  nodes.forEach(n => { if ((inDegree.get(n.id) ?? 0) === 0) queue.push(n.id); });
+  if (queue.length === 0) queue.push(nodes[0].id);
+
+  const remaining = new Map(inDegree);
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const node = map.get(id);
+    if (!node) continue;
+    const curRank = rank.get(id) ?? 0;
+    const succs = [node.next, node.yes, node.no].filter(Boolean) as string[];
+    succs.forEach(s => {
+      if (!map.has(s)) return;
+      const newRank = curRank + nodeH(node) + V_GAP;
+      if (!rank.has(s) || rank.get(s)! < newRank) rank.set(s, newRank);
+      const rem = (remaining.get(s) ?? 1) - 1;
+      remaining.set(s, rem);
+      if (rem <= 0) queue.push(s);
+    });
+  }
+
+  nodes.forEach(n => { if (!rank.has(n.id)) rank.set(n.id, 0); });
+
+  const xPos = new Map<string, number>();
+  const assignX = (id: string, x: number, visited = new Set<string>()) => {
+    if (visited.has(id)) return;
     visited.add(id);
+    if (!xPos.has(id)) xPos.set(id, x);
     const node = map.get(id);
     if (!node) return;
-
-    const isDecision = node.type === 'decision';
-    const h = isDecision ? DECISION_H : SHAPE_H;
-    layouts.push({ node, x, y: currentY, w: SHAPE_W, h });
-    currentY += h + V_GAP;
-
-    if (isDecision) {
-      if (node.yes) place(node.yes, x);
-      if (node.no) place(node.no, x + BRANCH_INDENT);
+    if (node.type === 'decision') {
+      if (node.yes) assignX(node.yes, x, visited);
+      if (node.no) assignX(node.no, x + BRANCH_INDENT, visited);
     } else if (node.next) {
-      place(node.next, x);
+      assignX(node.next, xPos.get(id) ?? x, visited);
     }
   };
+  assignX(nodes[0].id, COL_CENTER - SHAPE_W / 2);
+  nodes.forEach(n => { if (!xPos.has(n.id)) xPos.set(n.id, COL_CENTER - SHAPE_W / 2); });
 
-  if (nodes.length > 0) place(nodes[0].id, COL_CENTER - SHAPE_W / 2);
-  return { layouts, totalH: currentY + 20 };
+  const startY = 40;
+  const layouts: NodeLayout[] = nodes.map(n => ({
+    node: n,
+    x: xPos.get(n.id) ?? COL_CENTER - SHAPE_W / 2,
+    y: startY + (rank.get(n.id) ?? 0),
+    w: SHAPE_W,
+    h: nodeH(n),
+  }));
+
+  const totalH = Math.max(...layouts.map(l => l.y + l.h)) + 40;
+  return { layouts, totalH };
 }
 
 function FlowchartShape({ node, x, y, w, h }: NodeLayout) {
@@ -398,7 +437,7 @@ function FlowchartView({ nodes }: { nodes: FlowchartNode[] }) {
 
   const { layouts, totalH } = buildFlowchartLayout(nodes);
   const layoutMap = new Map(layouts.map(l => [l.node.id, l]));
-  const SVG_W = 600;
+  const SVG_W = Math.max(600, ...layouts.map(l => l.x + l.w + 40));
 
   const arrows: React.ReactNode[] = [];
 
