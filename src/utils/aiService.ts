@@ -289,10 +289,19 @@ export interface DesignTools {
 
 function parseJson<T>(raw: string): T {
   let cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
-  const start = cleaned.indexOf('{') !== -1 ? cleaned.indexOf('{') : cleaned.indexOf('[');
-  const endBrace = cleaned.lastIndexOf('}');
-  const endBracket = cleaned.lastIndexOf(']');
-  const end = Math.max(endBrace, endBracket);
+  const firstBrace = cleaned.indexOf('{');
+  const firstBracket = cleaned.indexOf('[');
+  let start = -1;
+  if (firstBrace !== -1 && firstBracket !== -1) {
+    start = Math.min(firstBrace, firstBracket);
+  } else if (firstBrace !== -1) {
+    start = firstBrace;
+  } else if (firstBracket !== -1) {
+    start = firstBracket;
+  }
+  const openChar = start !== -1 ? cleaned[start] : null;
+  const closeChar = openChar === '{' ? '}' : ']';
+  const end = closeChar ? cleaned.lastIndexOf(closeChar) : -1;
   if (start !== -1 && end !== -1 && end > start) {
     cleaned = cleaned.slice(start, end + 1);
   }
