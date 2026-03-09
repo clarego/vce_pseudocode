@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 
 interface PseudocodeEditorProps {
   value: string;
@@ -12,10 +12,18 @@ export const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
   onCursorPositionChange,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus();
+    }
+  }, []);
+
+  const syncScroll = useCallback(() => {
+    if (textareaRef.current && highlightRef.current) {
+      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
+      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
     }
   }, []);
 
@@ -204,11 +212,12 @@ export const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
 
     return (
       <div key={index} className="table-row">
-        <div className="table-cell pr-4 text-right text-gray-500 dark:text-gray-500 select-none border-r border-gray-300 dark:border-gray-600">
+        <div className="table-cell text-right text-gray-500 dark:text-gray-500 select-none border-r border-gray-300 dark:border-gray-600" style={{ width: '3rem', paddingRight: '0.5rem' }}>
           {index + 1}
         </div>
         <div
-          className="table-cell pl-4"
+          className="table-cell"
+          style={{ paddingLeft: '0.5rem' }}
           dangerouslySetInnerHTML={{ __html: highlightedLine || '&nbsp;' }}
         />
       </div>
@@ -217,8 +226,11 @@ export const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
 
   return (
     <div className="relative h-full font-mono text-sm">
-      <div className="absolute inset-0 overflow-auto p-4 bg-white dark:bg-gray-800 pointer-events-none z-10">
-        <div className="table text-gray-800 dark:text-gray-200">
+      <div
+        ref={highlightRef}
+        className="absolute inset-0 overflow-hidden p-4 bg-white dark:bg-gray-800 pointer-events-none z-10"
+      >
+        <div className="table text-gray-800 dark:text-gray-200 min-w-full">
           {highlightedContent}
         </div>
       </div>
@@ -230,11 +242,14 @@ export const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
         onClick={handleClick}
         onKeyUp={handleKeyUp}
         onKeyDown={handleKeyDown}
-        className="absolute inset-0 w-full h-full p-4 pl-16 font-mono text-sm bg-transparent resize-none outline-none z-20 caret-white"
+        onScroll={syncScroll}
+        className="absolute inset-0 w-full h-full font-mono text-sm bg-transparent resize-none outline-none z-20 overflow-auto"
         style={{
           lineHeight: '1.5',
           color: 'transparent',
           caretColor: 'white',
+          padding: '1rem',
+          paddingLeft: '5.125rem',
         }}
         spellCheck={false}
       />
