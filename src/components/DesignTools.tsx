@@ -337,11 +337,11 @@ function ZoomableView({ children, svgW, svgH }: { children: React.ReactNode; svg
 }
 
 const SHAPE_H = 48;
-const SHAPE_W = 180;
-const COL_CENTER = 300;
-const V_GAP = 80;
+const SHAPE_W = 190;
+const V_GAP = 72;
 const DECISION_H = 60;
-const BRANCH_INDENT = 260;
+const BRANCH_COL_W = 260;
+const MAIN_COL_X = 40;
 
 interface NodeLayout {
   node: FlowchartNode;
@@ -351,72 +351,78 @@ interface NodeLayout {
   h: number;
 }
 
-function buildFlowchartLayout(nodes: FlowchartNode[]): { layouts: NodeLayout[]; totalH: number } {
-  if (nodes.length === 0) return { layouts: [], totalH: 0 };
+function buildFlowchartLayout(nodes: FlowchartNode[]): { layouts: NodeLayout[]; totalH: number; svgW: number } {
+  if (nodes.length === 0) return { layouts: [], totalH: 0, svgW: 600 };
 
   const map = new Map(nodes.map(n => [n.id, n]));
+  const nodeH = (id: string) => (map.get(id)?.type === 'decision' ? DECISION_H : SHAPE_H);
 
-  const inDegree = new Map<string, number>();
-  nodes.forEach(n => inDegree.set(n.id, 0));
-  nodes.forEach(n => {
-    const succs = [n.next, n.yes, n.no].filter(Boolean) as string[];
-    succs.forEach(s => { if (map.has(s)) inDegree.set(s, (inDegree.get(s) ?? 0) + 1); });
-  });
+  const yPos = new Map<string, number>();
+  const col = new Map<string, number>();
 
-  const nodeH = (n: FlowchartNode) => (n.type === 'decision' ? DECISION_H : SHAPE_H);
+  const visited = new Set<string>();
+  let mainY = 40;
 
-  const rank = new Map<string, number>();
-  const queue: string[] = [];
-  nodes.forEach(n => { if ((inDegree.get(n.id) ?? 0) === 0) queue.push(n.id); });
-  if (queue.length === 0) queue.push(nodes[0].id);
-
-  const remaining = new Map(inDegree);
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    const node = map.get(id);
-    if (!node) continue;
-    const curRank = rank.get(id) ?? 0;
-    const succs = [node.next, node.yes, node.no].filter(Boolean) as string[];
-    succs.forEach(s => {
-      if (!map.has(s)) return;
-      const newRank = curRank + nodeH(node) + V_GAP;
-      if (!rank.has(s) || rank.get(s)! < newRank) rank.set(s, newRank);
-      const rem = (remaining.get(s) ?? 1) - 1;
-      remaining.set(s, rem);
-      if (rem <= 0) queue.push(s);
-    });
-  }
-
-  nodes.forEach(n => { if (!rank.has(n.id)) rank.set(n.id, 0); });
-
-  const xPos = new Map<string, number>();
-  const assignX = (id: string, x: number, visited = new Set<string>()) => {
-    if (visited.has(id)) return;
+  const walk = (id: string, c: number, y: number): number => {
+    if (!map.has(id)) return y;
+    if (visited.has(id)) return y;
     visited.add(id);
-    if (!xPos.has(id)) xPos.set(id, x);
-    const node = map.get(id);
-    if (!node) return;
+
+    col.set(id, c);
+    yPos.set(id, y);
+
+    const node = map.get(id)!;
+    const nextY = y + nodeH(id) + V_GAP;
+
     if (node.type === 'decision') {
-      if (node.yes) assignX(node.yes, x, visited);
-      if (node.no) assignX(node.no, x + BRANCH_INDENT, visited);
-    } else if (node.next) {
-      assignX(node.next, xPos.get(id) ?? x, visited);
+      let afterBranchY = nextY;
+
+      if (node.yes) {
+        afterBranchY = Math.max(afterBranchY, walk(node.yes, c, nextY));
+      }
+      if (node.no) {
+        afterBranchY = Math.max(afterBranchY, walk(node.no, c + 1, nextY));
+      }
+      if (node.next) {
+        afterBranchY = walk(node.next, c, afterBranchY);
+      }
+      return afterBranchY;
+    } else {
+      if (node.next) {
+        return walk(node.next, c, nextY);
+      }
+      return nextY;
     }
   };
-  assignX(nodes[0].id, COL_CENTER - SHAPE_W / 2);
-  nodes.forEach(n => { if (!xPos.has(n.id)) xPos.set(n.id, COL_CENTER - SHAPE_W / 2); });
 
-  const startY = 40;
-  const layouts: NodeLayout[] = nodes.map(n => ({
-    node: n,
-    x: xPos.get(n.id) ?? COL_CENTER - SHAPE_W / 2,
-    y: startY + (rank.get(n.id) ?? 0),
-    w: SHAPE_W,
-    h: nodeH(n),
-  }));
+  const startId = nodes[0].id;
+  mainY = walk(startId, 0, 40);
 
-  const totalH = Math.max(...layouts.map(l => l.y + l.h)) + 40;
-  return { layouts, totalH };
+  nodes.forEach(n => {
+    if (!visited.has(n.id)) {
+      yPos.set(n.id, mainY);
+      col.set(n.id, 0);
+      mainY += nodeH(n.id) + V_GAP;
+    }
+  });
+
+  const maxCol = Math.max(...Array.from(col.values()), 0);
+  const svgW = MAIN_COL_X + (maxCol + 1) * BRANCH_COL_W + SHAPE_W + 60;
+
+  const layouts: NodeLayout[] = nodes.map(n => {
+    const c = col.get(n.id) ?? 0;
+    const x = MAIN_COL_X + c * BRANCH_COL_W;
+    return {
+      node: n,
+      x,
+      y: yPos.get(n.id) ?? 40,
+      w: SHAPE_W,
+      h: nodeH(n.id),
+    };
+  });
+
+  const totalH = Math.max(...layouts.map(l => l.y + l.h)) + 60;
+  return { layouts, totalH, svgW };
 }
 
 function FlowchartShape({ node, x, y, w, h }: NodeLayout) {
@@ -493,9 +499,18 @@ function FlowchartView({ nodes }: { nodes: FlowchartNode[] }) {
     return <div className="text-center text-gray-500 py-8">No flowchart data available.</div>;
   }
 
-  const { layouts, totalH } = buildFlowchartLayout(nodes);
+  const { layouts, totalH, svgW } = buildFlowchartLayout(nodes);
   const layoutMap = new Map(layouts.map(l => [l.node.id, l]));
-  const SVG_W = Math.max(600, ...layouts.map(l => l.x + l.w + 40));
+  const SVG_W = Math.max(600, svgW);
+
+  const ARROW_COLOR = '#64748b';
+
+  const arrowHead = (tx: number, ty: number, fromAbove: boolean) => {
+    if (fromAbove) {
+      return `${tx},${ty} ${tx - 5},${ty - 10} ${tx + 5},${ty - 10}`;
+    }
+    return `${tx},${ty} ${tx - 5},${ty + 10} ${tx + 5},${ty + 10}`;
+  };
 
   const arrows: React.ReactNode[] = [];
 
@@ -503,27 +518,25 @@ function FlowchartView({ nodes }: { nodes: FlowchartNode[] }) {
     const cx = x + w / 2;
     const bottom = y + h;
 
-    const drawArrow = (fromX: number, fromY: number, toX: number, toY: number, label?: string) => {
-      const key = `${fromX}-${fromY}-${toX}-${toY}`;
-      if (fromX === toX) {
+    const drawDownArrow = (fromX: number, fromY: number, toX: number, toY: number, label?: string) => {
+      const key = `arr-${fromX}-${fromY}-${toX}-${toY}`;
+      if (Math.abs(fromX - toX) < 2) {
         arrows.push(
           <g key={key}>
-            <line x1={fromX} y1={fromY} x2={toX} y2={toY - 8}
-              stroke="currentColor" strokeWidth="1.5" className="text-gray-400 dark:text-gray-500" />
-            <polygon points={`${toX},${toY} ${toX - 5},${toY - 10} ${toX + 5},${toY - 10}`}
-              fill="currentColor" className="text-gray-400 dark:text-gray-500" />
-            {label && <text x={fromX + 6} y={(fromY + toY) / 2} fontSize="10" className="fill-gray-500 dark:fill-gray-400">{label}</text>}
+            <line x1={fromX} y1={fromY} x2={toX} y2={toY - 10} stroke={ARROW_COLOR} strokeWidth="1.5" />
+            <polygon points={arrowHead(toX, toY, true)} fill={ARROW_COLOR} />
+            {label && <text x={fromX + 6} y={(fromY + toY) / 2} fontSize="10" fill={ARROW_COLOR}>{label}</text>}
           </g>
         );
       } else {
-        const midY = (fromY + toY) / 2;
+        const midY = fromY + (toY - fromY) * 0.5;
         arrows.push(
           <g key={key}>
-            <polyline points={`${fromX},${fromY} ${fromX},${midY} ${toX},${midY} ${toX},${toY - 8}`}
-              fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400 dark:text-gray-500" />
-            <polygon points={`${toX},${toY} ${toX - 5},${toY - 10} ${toX + 5},${toY - 10}`}
-              fill="currentColor" className="text-gray-400 dark:text-gray-500" />
-            {label && <text x={(fromX + toX) / 2 + 4} y={midY - 4} fontSize="10" className="fill-gray-500 dark:fill-gray-400">{label}</text>}
+            <polyline
+              points={`${fromX},${fromY} ${fromX},${midY} ${toX},${midY} ${toX},${toY - 10}`}
+              fill="none" stroke={ARROW_COLOR} strokeWidth="1.5" />
+            <polygon points={arrowHead(toX, toY, true)} fill={ARROW_COLOR} />
+            {label && <text x={(fromX + toX) / 2 + 4} y={midY - 5} fontSize="10" fill={ARROW_COLOR}>{label}</text>}
           </g>
         );
       }
@@ -532,27 +545,47 @@ function FlowchartView({ nodes }: { nodes: FlowchartNode[] }) {
     if (node.type === 'decision') {
       if (node.yes) {
         const target = layoutMap.get(node.yes);
-        if (target) drawArrow(cx, bottom, target.x + target.w / 2, target.y, 'Yes');
+        if (target) {
+          const tcx = target.x + target.w / 2;
+          if (Math.abs(cx - tcx) < 2) {
+            drawDownArrow(cx, bottom, tcx, target.y, 'Yes');
+          } else {
+            drawDownArrow(cx, bottom, tcx, target.y, 'Yes');
+          }
+        }
       }
       if (node.no) {
         const target = layoutMap.get(node.no);
         if (target) {
+          const tcx = target.x + target.w / 2;
           const rightEdge = x + w;
-          arrows.push(
-            <g key={`no-${node.id}`}>
-              <polyline
-                points={`${rightEdge},${y + h / 2} ${target.x + target.w / 2},${y + h / 2} ${target.x + target.w / 2},${target.y - 8}`}
-                fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400 dark:text-gray-500" />
-              <polygon points={`${target.x + target.w / 2},${target.y} ${target.x + target.w / 2 - 5},${target.y - 10} ${target.x + target.w / 2 + 5},${target.y - 10}`}
-                fill="currentColor" className="text-gray-400 dark:text-gray-500" />
-              <text x={rightEdge + 4} y={y + h / 2 - 4} fontSize="10" className="fill-gray-500 dark:fill-gray-400">No</text>
-            </g>
-          );
+          if (target.y > y + h) {
+            const midY = y + h / 2;
+            arrows.push(
+              <g key={`no-${node.id}`}>
+                <polyline
+                  points={`${rightEdge},${midY} ${tcx},${midY} ${tcx},${target.y - 10}`}
+                  fill="none" stroke={ARROW_COLOR} strokeWidth="1.5" />
+                <polygon points={arrowHead(tcx, target.y, true)} fill={ARROW_COLOR} />
+                <text x={rightEdge + 4} y={midY - 5} fontSize="10" fill={ARROW_COLOR}>No</text>
+              </g>
+            );
+          } else {
+            arrows.push(
+              <g key={`no-${node.id}`}>
+                <polyline
+                  points={`${rightEdge},${y + h / 2} ${tcx},${y + h / 2} ${tcx},${target.y - 10}`}
+                  fill="none" stroke={ARROW_COLOR} strokeWidth="1.5" />
+                <polygon points={arrowHead(tcx, target.y, true)} fill={ARROW_COLOR} />
+                <text x={rightEdge + 4} y={y + h / 2 - 5} fontSize="10" fill={ARROW_COLOR}>No</text>
+              </g>
+            );
+          }
         }
       }
     } else if (node.next) {
       const target = layoutMap.get(node.next);
-      if (target) drawArrow(cx, bottom, target.x + target.w / 2, target.y);
+      if (target) drawDownArrow(cx, bottom, target.x + target.w / 2, target.y);
     }
   });
 
