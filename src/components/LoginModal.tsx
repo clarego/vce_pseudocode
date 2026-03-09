@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, LogIn, Loader2, AlertCircle } from 'lucide-react';
+import { X, LogIn, Loader2, AlertCircle, Lock } from 'lucide-react';
 import { fetchUsernames, validateLogin, fetchOpenAIKey } from '../lib/supabaseAuth';
 
 interface LoginModalProps {
   onClose: () => void;
   onLoginSuccess: (openAiKey: string | null, username: string) => void;
+  reason?: string;
 }
 
 const REMEMBER_KEY = 'pseudocode_remembered_user';
 
-export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, reason }) => {
   const [usernames, setUsernames] = useState<string[]>([]);
   const [selectedUsername, setSelectedUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -76,6 +77,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess 
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {reason && (
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">{reason}</p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Username

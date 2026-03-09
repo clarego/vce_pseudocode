@@ -32,6 +32,7 @@ function App() {
   const [filename, setFilename] = useState('pseudocode');
 
   const [showLogin, setShowLogin] = useState(false);
+  const [loginReason, setLoginReason] = useState<string | undefined>(undefined);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState('');
   const [openAiKey, setOpenAiKey] = useState<string | null>(null);
@@ -91,6 +92,7 @@ function App() {
     setIsLoggedIn(true);
     setLoggedInUser(username);
     setShowLogin(false);
+    setLoginReason(undefined);
     setOpenAiKey(key);
     setSessionScores([]);
     setSessionTotal(0);
@@ -297,6 +299,11 @@ function App() {
   };
 
   const handleGenerateDesignTools = async () => {
+    if (!isLoggedIn) {
+      setLoginReason('Sign in to access Design Tools — AI-powered flowcharts, data dictionaries, ERDs, and more.');
+      setShowLogin(true);
+      return;
+    }
     if (showDesignTools && designToolsData) {
       setShowDesignTools(false);
       return;
@@ -581,8 +588,9 @@ function App() {
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showLogin && (
         <LoginModal
-          onClose={() => setShowLogin(false)}
+          onClose={() => { setShowLogin(false); setLoginReason(undefined); }}
           onLoginSuccess={(key, username) => handleLoginSuccess(key, username)}
+          reason={loginReason}
         />
       )}
     </div>
