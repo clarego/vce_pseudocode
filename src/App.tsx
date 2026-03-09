@@ -47,6 +47,7 @@ function App() {
 
   const [showDesignTools, setShowDesignTools] = useState(false);
   const [designToolsData, setDesignToolsData] = useState<DesignToolsData | null>(null);
+  const [designToolsError, setDesignToolsError] = useState<string | null>(null);
   const [isDesignToolsLoading, setIsDesignToolsLoading] = useState(false);
   const [showMobileWordPanel, setShowMobileWordPanel] = useState(false);
   const [rightPanelWidth, setRightPanelWidth] = useState(50);
@@ -307,11 +308,13 @@ function App() {
   const runDesignToolsGeneration = async () => {
     if (!openAiKey || apiKeyStatus !== 'valid' || !pseudocode.trim()) return;
     setIsDesignToolsLoading(true);
+    setDesignToolsError(null);
     try {
       const result = await aiGenerateDesignTools(openAiKey, pseudocode, 'pseudocode');
       setDesignToolsData(result);
-    } catch {
+    } catch (err) {
       setDesignToolsData(null);
+      setDesignToolsError(err instanceof Error ? err.message : 'Failed to generate design tools. Please try again.');
     } finally {
       setIsDesignToolsLoading(false);
     }
@@ -604,8 +607,10 @@ function App() {
                   <DesignTools
                     data={designToolsData}
                     isLoading={isDesignToolsLoading}
+                    error={designToolsError}
                     onRegenerate={() => {
                       setDesignToolsData(null);
+                      setDesignToolsError(null);
                       runDesignToolsGeneration();
                     }}
                     onClose={() => setShowDesignTools(false)}

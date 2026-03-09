@@ -16,7 +16,7 @@ const callClaude = async (
     },
     body: JSON.stringify({
       model: 'claude-opus-4-5',
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature,
       system: systemPrompt,
       messages: [
@@ -459,7 +459,12 @@ VCAA Rules:
   - All x, y, width, height values must be integers. Ensure all widgets fit within the screen bounds.`;
 
   const raw = await callClaude(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
-  const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
+  let cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
+  const braceStart = cleaned.indexOf('{');
+  const braceEnd = cleaned.lastIndexOf('}');
+  if (braceStart !== -1 && braceEnd !== -1 && braceEnd > braceStart) {
+    cleaned = cleaned.slice(braceStart, braceEnd + 1);
+  }
   return JSON.parse(cleaned) as DesignTools;
 };
 

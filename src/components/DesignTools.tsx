@@ -20,6 +20,7 @@ type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd' | 'erdChen' | 
 interface DesignToolsProps {
   data: DesignToolsData | null;
   isLoading: boolean;
+  error?: string | null;
   onRegenerate: () => void;
   onClose: () => void;
 }
@@ -125,7 +126,7 @@ function getTabTextContent(tab: Tab, data: DesignToolsData): string {
   return lines.join('\n');
 }
 
-export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onRegenerate, onClose }) => {
+export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, error, onRegenerate, onClose }) => {
   const [activeTab, setActiveTab] = useState<Tab>('flowchart');
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -256,6 +257,22 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
           <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
             <Loader2 className="w-8 h-8 animate-spin mb-3 text-blue-500" />
             <p className="text-sm">AI is generating your VCAA design tools...</p>
+            <p className="text-xs mt-1 text-gray-400">This may take up to 30 seconds</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-3">
+              <X className="w-5 h-5 text-red-500" />
+            </div>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Generation failed</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{error}</p>
+            <button
+              onClick={onRegenerate}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Try again
+            </button>
           </div>
         ) : !data ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
