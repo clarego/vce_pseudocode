@@ -52,7 +52,7 @@ export const fetchClaudeKey = async (): Promise<string | null> => {
   const { data, error } = await authDb
     .from('secrets')
     .select('key_value')
-    .eq('key_name', 'CLAUDE_API_Key')
+    .eq('key_name', 'CLAUDE_API_KEY')
     .maybeSingle();
 
   if (error) return null;
