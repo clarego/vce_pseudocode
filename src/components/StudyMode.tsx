@@ -470,6 +470,7 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey, sessionId, user
     let i = 0;
     let inCodeBlock = false;
     let codeBlockLines: string[] = [];
+    let firstH1Skipped = false;
 
     while (i < lines.length) {
       const line = lines[i];
@@ -498,7 +499,9 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey, sessionId, user
         continue;
       }
 
-      if (line.startsWith('# ')) {
+      if (line.startsWith('# ') && !firstH1Skipped) {
+        firstH1Skipped = true;
+      } else if (line.startsWith('# ')) {
         elements.push(<h2 key={i} className="text-2xl font-bold mt-6 mb-3 text-gray-900 dark:text-white">{line.slice(2)}</h2>);
       } else if (line.startsWith('## ')) {
         elements.push(<h3 key={i} className="text-xl font-semibold mt-4 mb-2 text-gray-800 dark:text-gray-100">{line.slice(3)}</h3>);
