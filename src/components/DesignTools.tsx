@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor, X, Copy, FileDown, Check } from 'lucide-react';
 import type {
   DesignTools as DesignToolsData,
   FlowchartNode,
@@ -35,8 +35,157 @@ const TAB_CONFIG: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'mockup', label: 'GUI Mockup', icon: <Monitor className="w-4 h-4" /> },
 ];
 
+function getTabTextContent(tab: Tab, data: DesignToolsData): string {
+  const lines: string[] = [];
+
+  if (tab === 'flowchart' && data.flowchart) {
+    lines.push('FLOWCHART');
+    lines.push('='.repeat(40));
+    data.flowchart.forEach(n => {
+      const type = n.type.toUpperCase();
+      lines.push(`[${type}] ${n.label}`);
+      if (n.yes) lines.push(`  -> YES: ${n.yes}`);
+      if (n.no) lines.push(`  -> NO: ${n.no}`);
+      if (n.next) lines.push(`  -> NEXT: ${n.next}`);
+    });
+  }
+
+  if (tab === 'dataDictionary' && data.dataDictionary) {
+    lines.push('DATA DICTIONARY');
+    lines.push('='.repeat(80));
+    const cols = ['name', 'dataType', 'formatForDisplay', 'sizeBytes', 'sizeDisplay', 'description', 'example', 'validation'] as const;
+    lines.push(cols.map(c => c.padEnd(16)).join(' | '));
+    lines.push('-'.repeat(80));
+    data.dataDictionary.forEach(row => {
+      lines.push(cols.map(c => (row[c] || '—').toString().padEnd(16)).join(' | '));
+    });
+  }
+
+  if (tab === 'ipo' && data.ipoChart) {
+    const c = data.ipoChart;
+    lines.push(`IPO CHART: ${c.title}`);
+    lines.push('='.repeat(60));
+    const maxRows = Math.max(c.inputs?.length ?? 0, c.process?.length ?? 0, c.outputs?.length ?? 0);
+    lines.push('INPUT'.padEnd(22) + 'PROCESS'.padEnd(22) + 'OUTPUT');
+    lines.push('-'.repeat(66));
+    for (let i = 0; i < maxRows; i++) {
+      const inp = (c.inputs?.[i] ?? '').padEnd(22);
+      const proc = (c.process?.[i] ? `${i + 1}. ${c.process[i]}` : '').padEnd(22);
+      const out = c.outputs?.[i] ?? '';
+      lines.push(`${inp}${proc}${out}`);
+    }
+  }
+
+  if (tab === 'ucd' && data.ucd) {
+    const u = data.ucd;
+    lines.push(`USE CASE DIAGRAM: ${u.systemName}`);
+    lines.push('='.repeat(60));
+    lines.push('\nACTORS:');
+    u.actors.forEach(a => lines.push(`  - ${a.name} (${a.side})`));
+    lines.push('\nUSE CASES:');
+    u.useCases.forEach(uc => lines.push(`  - ${uc.label}`));
+    lines.push('\nRELATIONSHIPS:');
+    u.relationships.forEach(r => lines.push(`  ${r.from} --[${r.type}]--> ${r.to}`));
+  }
+
+  if (tab === 'dfd' && data.dfd) {
+    lines.push('DATA FLOW DIAGRAM');
+    lines.push('='.repeat(60));
+    data.dfd.forEach(level => {
+      lines.push(`\nLevel ${level.level}:`);
+      level.elements.forEach(e => lines.push(`  [${e.type}] ${e.label}`));
+      level.flows.forEach(f => lines.push(`  ${f.from} --> ${f.to}: ${f.label}`));
+    });
+  }
+
+  if ((tab === 'erdChen' || tab === 'erdCrowsFoot') && data.erd) {
+    const label = tab === 'erdChen' ? "ERD (Chen's Notation)" : "ERD (Crow's Foot Notation)";
+    lines.push(label);
+    lines.push('='.repeat(60));
+    lines.push('\nENTITIES:');
+    data.erd.entities.forEach(e => {
+      lines.push(`  ${e.name}`);
+      e.attributes.forEach(a => lines.push(`    - ${a}`));
+    });
+    lines.push('\nRELATIONSHIPS:');
+    data.erd.relationships.forEach(r => {
+      lines.push(`  ${r.entity1} [${r.cardinality1}] --${r.label}--> [${r.cardinality2}] ${r.entity2}`);
+    });
+  }
+
+  if (tab === 'mockup' && data.mockup) {
+    lines.push('GUI MOCKUP');
+    lines.push('='.repeat(60));
+    data.mockup.forEach(screen => {
+      lines.push(`\nScreen: ${screen.title}`);
+      screen.widgets.forEach(w => lines.push(`  [${w.type}] ${w.label}${w.content ? ': ' + w.content : ''}`));
+    });
+  }
+
+  return lines.join('\n');
+}
+
 export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onRegenerate, onClose }) => {
   const [activeTab, setActiveTab] = useState<Tab>('flowchart');
+  const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const activeTabLabel = TAB_CONFIG.find(t => t.id === activeTab)?.label ?? activeTab;
+
+  const handleCopy = () => {
+    if (!data) return;
+    const text = getTabTextContent(activeTab, data);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleExportPDF = async () => {
+    if (!contentRef.current || !data) return;
+    setExporting(true);
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentW = pageW - margin * 2;
+      const contentH = (canvas.height / canvas.width) * contentW;
+
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`VCAA Design Tools — ${activeTabLabel}`, margin, margin + 6);
+
+      const imgY = margin + 12;
+      const availH = pageH - imgY - margin;
+
+      if (contentH <= availH) {
+        pdf.addImage(imgData, 'PNG', margin, imgY, contentW, contentH);
+      } else {
+        const scale = availH / contentH;
+        pdf.addImage(imgData, 'PNG', margin, imgY, contentW * scale, availH);
+      }
+
+      const slug = activeTabLabel.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      pdf.save(`design_tools_${slug}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="mt-6 border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
@@ -46,6 +195,27 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
           VCAA Design Tools
         </h5>
         <div className="flex items-center gap-2">
+          {data && !isLoading && (
+            <>
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                title={`Copy ${activeTabLabel} as text`}
+              >
+                {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={exporting}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
+                title={`Export ${activeTabLabel} as PDF`}
+              >
+                {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileDown className="w-3 h-3" />}
+                {exporting ? 'Exporting...' : 'Export PDF'}
+              </button>
+            </>
+          )}
           <button
             onClick={onRegenerate}
             disabled={isLoading}
@@ -81,7 +251,7 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
         ))}
       </div>
 
-      <div className="p-4 overflow-auto max-h-[600px]">
+      <div ref={contentRef} className="p-4 overflow-auto max-h-[600px]">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400">
             <Loader2 className="w-8 h-8 animate-spin mb-3 text-blue-500" />
