@@ -70,73 +70,150 @@ function getTabTextContent(tab: Tab, data: DesignToolsData): string {
 
   if (tab === 'dataDictionary' && data.dataDictionary) {
     lines.push('DATA DICTIONARY');
-    lines.push('='.repeat(80));
-    const cols = ['name', 'dataType', 'formatForDisplay', 'sizeBytes', 'sizeDisplay', 'description', 'example', 'validation'] as const;
-    lines.push(cols.map(c => c.padEnd(16)).join(' | '));
-    lines.push('-'.repeat(80));
-    data.dataDictionary.forEach(row => {
-      lines.push(cols.map(c => (row[c] || '—').toString().padEnd(16)).join(' | '));
+    lines.push('='.repeat(50));
+    data.dataDictionary.forEach((row, i) => {
+      lines.push('');
+      lines.push(`Field ${i + 1}: ${row.name}`);
+      if (row.dataType)          lines.push(`  Data Type:          ${row.dataType}`);
+      if (row.formatForDisplay)  lines.push(`  Format for Display: ${row.formatForDisplay}`);
+      if (row.sizeBytes)         lines.push(`  Size (bytes):       ${row.sizeBytes}`);
+      if (row.sizeDisplay)       lines.push(`  Size (display):     ${row.sizeDisplay}`);
+      if (row.description)       lines.push(`  Description:        ${row.description}`);
+      if (row.example)           lines.push(`  Example:            ${row.example}`);
+      if (row.validation)        lines.push(`  Validation:         ${row.validation}`);
     });
   }
 
   if (tab === 'ipo' && data.ipoChart) {
     const c = data.ipoChart;
     lines.push(`IPO CHART: ${c.title}`);
-    lines.push('='.repeat(60));
-    const maxRows = Math.max(c.inputs?.length ?? 0, c.process?.length ?? 0, c.outputs?.length ?? 0);
-    lines.push('INPUT'.padEnd(22) + 'PROCESS'.padEnd(22) + 'OUTPUT');
-    lines.push('-'.repeat(66));
-    for (let i = 0; i < maxRows; i++) {
-      const inp = (c.inputs?.[i] ?? '').padEnd(22);
-      const proc = (c.process?.[i] ? `${i + 1}. ${c.process[i]}` : '').padEnd(22);
-      const out = c.outputs?.[i] ?? '';
-      lines.push(`${inp}${proc}${out}`);
-    }
+    lines.push('='.repeat(50));
+    lines.push('');
+    lines.push('INPUT');
+    lines.push('-'.repeat(30));
+    (c.inputs ?? []).forEach(item => lines.push(`  - ${item}`));
+    lines.push('');
+    lines.push('PROCESS');
+    lines.push('-'.repeat(30));
+    (c.process ?? []).forEach((item, i) => lines.push(`  ${i + 1}. ${item}`));
+    lines.push('');
+    lines.push('OUTPUT');
+    lines.push('-'.repeat(30));
+    (c.outputs ?? []).forEach(item => lines.push(`  - ${item}`));
   }
 
   if (tab === 'ucd' && data.ucd) {
     const u = data.ucd;
     lines.push(`USE CASE DIAGRAM: ${u.systemName}`);
-    lines.push('='.repeat(60));
-    lines.push('\nACTORS:');
-    u.actors.forEach(a => lines.push(`  - ${a.name} (${a.side})`));
-    lines.push('\nUSE CASES:');
+    lines.push('='.repeat(50));
+    lines.push('');
+    lines.push('ACTORS');
+    lines.push('-'.repeat(30));
+    u.actors.forEach(a => {
+      const parent = a.parent ? ` (generalises: ${a.parent})` : '';
+      lines.push(`  - ${a.name}${parent}`);
+    });
+    lines.push('');
+    lines.push('USE CASES');
+    lines.push('-'.repeat(30));
     u.useCases.forEach(uc => lines.push(`  - ${uc.label}`));
-    lines.push('\nRELATIONSHIPS:');
-    u.relationships.forEach(r => lines.push(`  ${r.from} --[${r.type}]--> ${r.to}`));
+    lines.push('');
+    lines.push('RELATIONSHIPS');
+    lines.push('-'.repeat(30));
+    u.relationships.forEach(r => {
+      const typeLabel = r.type.charAt(0).toUpperCase() + r.type.slice(1);
+      const extra = r.label ? ` "${r.label}"` : '';
+      lines.push(`  ${r.from}  --[${typeLabel}]-->  ${r.to}${extra}`);
+    });
   }
 
   if (tab === 'dfd' && data.dfd) {
     lines.push('DATA FLOW DIAGRAM');
-    lines.push('='.repeat(60));
+    lines.push('='.repeat(50));
     data.dfd.forEach(level => {
-      lines.push(`\nLevel ${level.level}:`);
-      level.elements.forEach(e => lines.push(`  [${e.type}] ${e.label}`));
-      level.flows.forEach(f => lines.push(`  ${f.from} --> ${f.to}: ${f.label}`));
+      const levelTitle = level.level === 0 ? 'Context Diagram (Level 0)' : `Level ${level.level} DFD${level.title ? ': ' + level.title : ''}`;
+      lines.push('');
+      lines.push(levelTitle);
+      lines.push('-'.repeat(40));
+      if (level.elements.length > 0) {
+        lines.push('');
+        lines.push('  Elements:');
+        level.elements.forEach(e => {
+          const typeLabel = e.type === 'external_entity' ? 'External Entity' : e.type === 'data_store' ? 'Data Store' : 'Process';
+          lines.push(`    - [${typeLabel}] ${e.label}`);
+        });
+      }
+      if (level.flows.length > 0) {
+        lines.push('');
+        lines.push('  Data Flows:');
+        level.flows.forEach(f => lines.push(`    - ${f.from}  →  ${f.to}: ${f.label}`));
+      }
     });
   }
 
   if ((tab === 'erdChen' || tab === 'erdCrowsFoot') && data.erd) {
-    const label = tab === 'erdChen' ? "ERD (Chen's Notation)" : "ERD (Crow's Foot Notation)";
-    lines.push(label);
-    lines.push('='.repeat(60));
-    lines.push('\nENTITIES:');
+    const notation = tab === 'erdChen' ? "Chen's Notation" : "Crow's Foot Notation";
+    lines.push(`ENTITY RELATIONSHIP DIAGRAM (${notation})`);
+    lines.push('='.repeat(50));
+    lines.push('');
+    lines.push('ENTITIES');
+    lines.push('-'.repeat(30));
     data.erd.entities.forEach(e => {
-      lines.push(`  ${e.name}`);
-      e.attributes.forEach(a => lines.push(`    - ${a}`));
+      const weak = e.isWeak ? ' [Weak Entity]' : '';
+      lines.push('');
+      lines.push(`  ${e.name}${weak}`);
+      e.attributes.forEach(a => {
+        const flags: string[] = [];
+        if (a.isPrimary)     flags.push('PK');
+        if (a.isForeign)     flags.push('FK');
+        if (a.isMultiValued) flags.push('multi-valued');
+        if (a.isDerived)     flags.push('derived');
+        const flagStr = flags.length > 0 ? ` (${flags.join(', ')})` : '';
+        lines.push(`    - ${a.name}${flagStr}`);
+      });
     });
-    lines.push('\nRELATIONSHIPS:');
+    lines.push('');
+    lines.push('RELATIONSHIPS');
+    lines.push('-'.repeat(30));
     data.erd.relationships.forEach(r => {
-      lines.push(`  ${r.entity1} [${r.cardinality1}] --${r.label}--> [${r.cardinality2}] ${r.entity2}`);
+      const weak = r.isWeak ? ' [Weak]' : '';
+      const entityList = r.entities.map(eid => {
+        const card = r.cardinality?.[eid] ?? '';
+        const part = r.participation?.[eid] ?? '';
+        const partLabel = part === 'total' ? 'total participation' : 'partial participation';
+        return `${eid} (${card}, ${partLabel})`;
+      }).join('  --  ');
+      lines.push('');
+      lines.push(`  ${r.name}${weak}`);
+      lines.push(`    ${entityList}`);
+      if (r.attributes && r.attributes.length > 0) {
+        lines.push(`    Attributes: ${r.attributes.map(a => a.name).join(', ')}`);
+      }
     });
   }
 
   if (tab === 'mockup' && data.mockup) {
     lines.push('GUI MOCKUP');
-    lines.push('='.repeat(60));
+    lines.push('='.repeat(50));
     data.mockup.forEach(screen => {
-      lines.push(`\nScreen: ${screen.title}`);
-      screen.widgets.forEach(w => lines.push(`  [${w.type}] ${w.label}${w.content ? ': ' + w.content : ''}`));
+      lines.push('');
+      lines.push(`Screen: ${screen.title}`);
+      lines.push('-'.repeat(40));
+      screen.widgets.forEach(w => {
+        const typeLabel = w.type.charAt(0).toUpperCase() + w.type.slice(1);
+        const extra: string[] = [];
+        if (w.placeholder) extra.push(`placeholder: "${w.placeholder}"`);
+        if (w.value)       extra.push(`value: "${w.value}"`);
+        if (w.checked !== undefined) extra.push(w.checked ? 'checked' : 'unchecked');
+        if (w.items && w.items.length > 0) extra.push(`items: ${w.items.join(', ')}`);
+        if (w.annotation)  extra.push(`note: ${w.annotation}`);
+        const extraStr = extra.length > 0 ? `  (${extra.join(' | ')})` : '';
+        lines.push(`  [${typeLabel}] ${w.label}${extraStr}`);
+        if (w.columns && w.rows) {
+          lines.push(`    Columns: ${w.columns.join(' | ')}`);
+          w.rows.forEach((row, ri) => lines.push(`    Row ${ri + 1}: ${row.join(' | ')}`));
+        }
+      });
     });
   }
 
