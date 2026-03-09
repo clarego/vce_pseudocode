@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   FolderOpen,
 } from 'lucide-react';
+import { CodeEditor } from './CodeEditor';
 
 interface ToolbarProps {
   onClear: () => void;
@@ -397,11 +398,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Or paste code directly
                 </label>
-                <textarea
+                <CodeEditor
                   value={importCode}
-                  onChange={(e) => { setImportCode(e.target.value); setImportFileName(''); }}
-                  className="w-full h-40 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                  onChange={(v) => { setImportCode(v); setImportFileName(''); }}
+                  language={importLanguage}
                   placeholder={importLanguage === 'python' ? 'def main():\n    print("Hello, world!")' : 'function main() {\n  console.log("Hello, world!");\n}'}
+                  minLines={10}
                 />
               </div>
             </div>
