@@ -47,3 +47,14 @@ export const fetchOpenAIKey = async (): Promise<string | null> => {
   if (error) return null;
   return data?.key_value ?? null;
 };
+
+export const fetchClaudeKey = async (): Promise<string | null> => {
+  const { data, error } = await authDb
+    .from('secrets')
+    .select('key_value')
+    .eq('key_name', 'CLAUDE_API_Key')
+    .maybeSingle();
+
+  if (error) return null;
+  return data?.key_value ?? null;
+};

@@ -12,7 +12,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { SessionScorePanel } from './components/SessionScorePanel';
 import { templates } from './data/templates';
 import { createSession, upsertLeaderboard, getSessionScores, QuestionScore } from './lib/scoringService';
-import { fetchOpenAIKey } from './lib/supabaseAuth';
+import { fetchClaudeKey } from './lib/supabaseAuth';
 import { pseudocodeToCode, codeToPseudocode } from './utils/converters';
 import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode, aiGenerateDesignTools } from './utils/aiService';
 import type { DesignTools as DesignToolsData } from './utils/aiService';
@@ -92,7 +92,7 @@ function App() {
   useEffect(() => {
     const savedUser = localStorage.getItem('session_username');
     if (savedUser && !openAiKey) {
-      fetchOpenAIKey().then(key => {
+      fetchClaudeKey().then(key => {
         if (key) {
           setOpenAiKey(key);
           setApiKeyStatus('valid');

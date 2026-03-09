@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, LogIn, Loader2, AlertCircle, Lock } from 'lucide-react';
-import { fetchUsernames, validateLogin, fetchOpenAIKey } from '../lib/supabaseAuth';
+import { fetchUsernames, validateLogin, fetchClaudeKey } from '../lib/supabaseAuth';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -51,7 +51,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess,
       } else {
         localStorage.removeItem(REMEMBER_KEY);
       }
-      const key = await fetchOpenAIKey();
+      const key = await fetchClaudeKey();
       onLoginSuccess(key, selectedUsername);
     } catch {
       setError('Login failed. Please try again.');

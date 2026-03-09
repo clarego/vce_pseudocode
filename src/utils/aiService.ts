@@ -1,34 +1,37 @@
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
-const callOpenAI = async (
+const callClaude = async (
   apiKey: string,
   systemPrompt: string,
   userContent: string,
   temperature = 0.2
 ): Promise<string> => {
-  const response = await fetch(OPENAI_API_URL, {
+  const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'claude-opus-4-5',
+      max_tokens: 4096,
+      temperature,
+      system: systemPrompt,
       messages: [
-        { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
       ],
-      temperature,
     }),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `OpenAI error: ${response.status}`);
+    throw new Error(err?.error?.message || `Claude error: ${response.status}`);
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() ?? '';
+  return data.content?.[0]?.text?.trim() ?? '';
 };
 
 export const aiPseudocodeToCode = async (
@@ -46,7 +49,7 @@ Rules:
 - For JavaScript: wrap code in a main() function and call it at the end.
 - Return ONLY the code, no explanation, no markdown fences.`;
 
-  return callOpenAI(apiKey, systemPrompt, pseudocode);
+  return callClaude(apiKey, systemPrompt, pseudocode);
 };
 
 export const aiCodeToPseudocode = async (
@@ -64,7 +67,7 @@ Rules:
 - Use DEFINE for functions, RETURN for return statements.
 - Return ONLY the pseudocode, no explanation, no markdown fences.`;
 
-  return callOpenAI(apiKey, systemPrompt, code);
+  return callClaude(apiKey, systemPrompt, code);
 };
 
 export const aiCorrectPseudocode = async (
@@ -80,7 +83,7 @@ Rules:
 - Add a brief comment (using //) at the end of any corrected line explaining what was fixed. Only comment fixed lines.
 - Return ONLY the corrected pseudocode, no extra explanation outside of inline comments.`;
 
-  return callOpenAI(apiKey, systemPrompt, pseudocode);
+  return callClaude(apiKey, systemPrompt, pseudocode);
 };
 
 export const aiCorrectAndConvert = async (
@@ -124,7 +127,7 @@ ${pseudocode}
 Expected solution (for reference only, do NOT reveal):
 ${solution}`;
 
-  const raw = await callOpenAI(apiKey, systemPrompt, userContent, 0.4);
+  const raw = await callClaude(apiKey, systemPrompt, userContent, 0.4);
   try {
     const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
     return JSON.parse(cleaned);
@@ -455,7 +458,7 @@ VCAA Rules:
   - For annotation: attach a short label pointing to the widget describing its purpose in plain English
   - All x, y, width, height values must be integers. Ensure all widgets fit within the screen bounds.`;
 
-  const raw = await callOpenAI(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
+  const raw = await callClaude(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
   const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
   return JSON.parse(cleaned) as DesignTools;
 };
@@ -485,7 +488,7 @@ ${lines.slice(-5).join('\n')}
 Current partial line: "${currentLine}"`;
 
   try {
-    const raw = await callOpenAI(apiKey, systemPrompt, userContent, 0.3);
+    const raw = await callClaude(apiKey, systemPrompt, userContent, 0.3);
     const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
     const suggestions = JSON.parse(cleaned);
     if (Array.isArray(suggestions)) return suggestions.slice(0, 3);
