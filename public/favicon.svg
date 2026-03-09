@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="14" fill="#1e40af"/>
+  <rect x="8" y="10" width="48" height="44" rx="5" fill="#1e3a8a"/>
+  <rect x="8" y="10" width="48" height="10" rx="5" fill="#2563eb"/>
+  <rect x="8" y="15" width="48" height="5" fill="#2563eb"/>
+  <circle cx="14" cy="15" r="2.2" fill="#93c5fd"/>
+  <circle cx="21" cy="15" r="2.2" fill="#93c5fd"/>
+  <circle cx="28" cy="15" r="2.2" fill="#93c5fd"/>
+  <rect x="14" y="27" width="10" height="2.5" rx="1.25" fill="#38bdf8"/>
+  <rect x="20" y="33" width="14" height="2.5" rx="1.25" fill="#7dd3fc"/>
+  <rect x="20" y="39" width="10" height="2.5" rx="1.25" fill="#7dd3fc"/>
+  <rect x="14" y="45" width="8" height="2.5" rx="1.25" fill="#38bdf8"/>
+  <text x="11" y="30" font-family="monospace" font-size="7" font-weight="bold" fill="#60a5fa">BEGIN</text>
+  <text x="17" y="36" font-family="monospace" font-size="6" fill="#93c5fd">IF x &gt; 0</text>
+  <text x="17" y="42" font-family="monospace" font-size="6" fill="#bfdbfe">  THEN</text>
+  <text x="11" y="48" font-family="monospace" font-size="7" font-weight="bold" fill="#60a5fa">END</text>
+</svg>

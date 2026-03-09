@@ -351,7 +351,19 @@ function App() {
         <div className="max-w-[2000px] mx-auto px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <Code2 className={`w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 ${theme === 'hacker' ? 'text-green-400' : ''}`} />
+              <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
+                <rect width="40" height="40" rx="9" fill={theme === 'hacker' ? '#052e16' : '#1e3a8a'} />
+                <rect x="5" y="6" width="30" height="28" rx="3" fill={theme === 'hacker' ? '#14532d' : '#1e40af'} />
+                <rect x="5" y="6" width="30" height="7" rx="3" fill={theme === 'hacker' ? '#16a34a' : '#2563eb'} />
+                <rect x="5" y="9" width="30" height="4" fill={theme === 'hacker' ? '#16a34a' : '#2563eb'} />
+                <circle cx="9.5" cy="10" r="1.4" fill={theme === 'hacker' ? '#4ade80' : '#93c5fd'} />
+                <circle cx="13.5" cy="10" r="1.4" fill={theme === 'hacker' ? '#4ade80' : '#93c5fd'} />
+                <circle cx="17.5" cy="10" r="1.4" fill={theme === 'hacker' ? '#4ade80' : '#93c5fd'} />
+                <text x="7" y="21" fontFamily="monospace" fontSize="5" fontWeight="bold" fill={theme === 'hacker' ? '#4ade80' : '#60a5fa'}>BEGIN</text>
+                <text x="10" y="26" fontFamily="monospace" fontSize="4.5" fill={theme === 'hacker' ? '#86efac' : '#93c5fd'}>IF x &gt; 0</text>
+                <text x="10" y="31" fontFamily="monospace" fontSize="4.5" fill={theme === 'hacker' ? '#bbf7d0' : '#bfdbfe'}>  THEN</text>
+                <text x="7" y="36" fontFamily="monospace" fontSize="5" fontWeight="bold" fill={theme === 'hacker' ? '#4ade80' : '#60a5fa'}>END</text>
+              </svg>
               <div className="min-w-0">
                 <h1 className={`text-base sm:text-2xl font-bold leading-tight truncate ${theme === 'hacker' ? 'text-green-400 font-mono' : ''}`}>
                   <span className="hidden sm:inline">VCE Pseudocode Learning Platform</span>
