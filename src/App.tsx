@@ -563,6 +563,7 @@ function App() {
                       setDesignToolsData(null);
                       runDesignToolsGeneration();
                     }}
+                    onClose={() => setShowDesignTools(false)}
                   />
                 </div>
               )}

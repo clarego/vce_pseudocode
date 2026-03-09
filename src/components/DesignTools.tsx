@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor } from 'lucide-react';
+import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor, X } from 'lucide-react';
 import type {
   DesignTools as DesignToolsData,
   FlowchartNode,
@@ -21,6 +21,7 @@ interface DesignToolsProps {
   data: DesignToolsData | null;
   isLoading: boolean;
   onRegenerate: () => void;
+  onClose: () => void;
 }
 
 const TAB_CONFIG: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -34,7 +35,7 @@ const TAB_CONFIG: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'mockup', label: 'GUI Mockup', icon: <Monitor className="w-4 h-4" /> },
 ];
 
-export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onRegenerate }) => {
+export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onRegenerate, onClose }) => {
   const [activeTab, setActiveTab] = useState<Tab>('flowchart');
 
   return (
@@ -44,14 +45,23 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, onReg
           <GitBranch className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           VCAA Design Tools
         </h5>
-        <button
-          onClick={onRegenerate}
-          disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50 transition-colors"
-        >
-          {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-          {isLoading ? 'Generating...' : 'Regenerate'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRegenerate}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50 transition-colors"
+          >
+            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            {isLoading ? 'Generating...' : 'Regenerate'}
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+            title="Close design tools"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
