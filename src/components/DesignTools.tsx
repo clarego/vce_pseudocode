@@ -641,22 +641,20 @@ function IpoChartView({ chart }: { chart: IpoChart }) {
   );
 }
 
-const ACTOR_W = 80;
-const ACTOR_BODY_TOP = 22;
-const ACTOR_BODY_MID = 35;
-const ACTOR_BODY_BOT = 50;
-const ACTOR_LEGS_BOT = 66;
-const ACTOR_LABEL_Y = 82;
-const ACTOR_TOTAL_H = 94;
-const UC_W = 170;
-const UC_H = 52;
-const UC_COL_GAP = 24;
-const SYSTEM_PAD_X = 36;
-const SYSTEM_PAD_Y = 48;
-const SYSTEM_TITLE_H = 28;
+const UC_RX = 90;
+const UC_RY = 30;
+const UC_ROW_GAP = 24;
+const SYSTEM_PAD_X = 48;
+const SYSTEM_PAD_Y = 40;
+const SYSTEM_TITLE_H = 32;
+const ACTOR_HEAD_R = 12;
+const ACTOR_BODY_H = 40;
+const ACTOR_ARM_W = 18;
+const ACTOR_LEG_H = 20;
+const ACTOR_TOTAL_H = ACTOR_HEAD_R * 2 + ACTOR_BODY_H + ACTOR_LEG_H + 20;
 
 interface UcdLayout {
-  actors: (UcdActor & { cx: number; cy: number })[];
+  actors: (UcdActor & { cx: number; topY: number })[];
   useCases: (UcdUseCase & { cx: number; cy: number })[];
   systemX: number;
   systemY: number;
@@ -671,46 +669,44 @@ function layoutUcd(ucd: DesignToolsData['ucd']): UcdLayout {
   const rightActors = ucd.actors.filter(a => a.side === 'right');
   const ucCount = ucd.useCases.length;
 
-  const ucCols = ucCount <= 3 ? 1 : ucCount <= 6 ? 2 : 3;
+  const ucCols = ucCount <= 2 ? 1 : ucCount <= 6 ? 2 : 3;
   const ucRows = Math.ceil(ucCount / ucCols);
 
-  const innerW = ucCols * UC_W + (ucCols - 1) * UC_COL_GAP;
-  const innerH = ucRows * UC_H + (ucRows - 1) * UC_COL_GAP;
+  const innerW = ucCols * (UC_RX * 2) + (ucCols - 1) * 20;
+  const innerH = ucRows * (UC_RY * 2) + (ucRows - 1) * UC_ROW_GAP;
   const systemW = innerW + SYSTEM_PAD_X * 2;
   const systemH = innerH + SYSTEM_PAD_Y * 2 + SYSTEM_TITLE_H;
 
-  const maxLeftH = Math.max(leftActors.length * (ACTOR_TOTAL_H + 16), systemH);
-  const maxRightH = Math.max(rightActors.length * (ACTOR_TOTAL_H + 16), systemH);
-  const totalH = Math.max(maxLeftH, maxRightH, systemH) + 80;
+  const maxActorCount = Math.max(leftActors.length, rightActors.length, 1);
+  const actorGroupH = maxActorCount * ACTOR_TOTAL_H + (maxActorCount - 1) * 24;
+  const totalH = Math.max(actorGroupH, systemH) + 80;
 
   const systemY = (totalH - systemH) / 2;
-  const systemX = 80 + ACTOR_W / 2 + 50;
-  const rightX = systemX + systemW + 50;
-  const totalW = rightX + ACTOR_W + 80;
+  const actorColW = ACTOR_HEAD_R * 2 + 20;
+  const systemX = actorColW + 60;
+  const rightX = systemX + systemW + 60;
+  const totalW = rightX + actorColW + 40;
 
-  const placeActors = (actors: UcdActor[], baseX: number) => {
-    const totalGroupH = actors.length * ACTOR_TOTAL_H + (actors.length - 1) * 16;
-    const startY = (totalH - totalGroupH) / 2;
-    return actors.map((a, i) => ({
-      ...a,
-      cx: baseX,
-      cy: startY + i * (ACTOR_TOTAL_H + 16) + 12,
-    }));
-  };
+  const placeActors = (actors: UcdActor[], baseX: number) =>
+    actors.map((a, i) => {
+      const totalGroupH = actors.length * ACTOR_TOTAL_H + (actors.length - 1) * 24;
+      const startY = (totalH - totalGroupH) / 2;
+      return { ...a, cx: baseX, topY: startY + i * (ACTOR_TOTAL_H + 24) };
+    });
 
-  const placedLeft = placeActors(leftActors, 80 + ACTOR_W / 2);
-  const placedRight = placeActors(rightActors, rightX + ACTOR_W / 2);
+  const placedLeft = placeActors(leftActors, actorColW / 2 + 20);
+  const placedRight = placeActors(rightActors, rightX + actorColW / 2);
 
-  const ucStartX = systemX + SYSTEM_PAD_X;
-  const ucStartY = systemY + SYSTEM_TITLE_H + SYSTEM_PAD_Y;
+  const ucStartX = systemX + SYSTEM_PAD_X + UC_RX;
+  const ucStartY = systemY + SYSTEM_TITLE_H + SYSTEM_PAD_Y + UC_RY;
 
   const placedUseCases = ucd.useCases.map((uc, i) => {
     const col = i % ucCols;
     const row = Math.floor(i / ucCols);
     return {
       ...uc,
-      cx: ucStartX + col * (UC_W + UC_COL_GAP) + UC_W / 2,
-      cy: ucStartY + row * (UC_H + UC_COL_GAP) + UC_H / 2,
+      cx: ucStartX + col * (UC_RX * 2 + 20),
+      cy: ucStartY + row * (UC_RY * 2 + UC_ROW_GAP),
     };
   });
 
@@ -726,6 +722,22 @@ function layoutUcd(ucd: DesignToolsData['ucd']): UcdLayout {
   };
 }
 
+function wrapText(text: string, maxChars: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+  for (const w of words) {
+    if ((current + ' ' + w).trim().length > maxChars) {
+      if (current) lines.push(current);
+      current = w;
+    } else {
+      current = (current + ' ' + w).trim();
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length ? lines : [text];
+}
+
 function UcdView({ ucd }: { ucd: DesignToolsData['ucd'] }) {
   if (!ucd || !ucd.actors || !ucd.useCases) {
     return <div className="text-center text-gray-500 py-8">No use case diagram available.</div>;
@@ -735,202 +747,136 @@ function UcdView({ ucd }: { ucd: DesignToolsData['ucd'] }) {
   const actorMap = new Map(layout.actors.map(a => [a.id, a]));
   const ucMap = new Map(layout.useCases.map(u => [u.id, u]));
 
-  const getCenter = (id: string): { x: number; y: number; isActor: boolean } | null => {
+  const actorCenterY = (actor: { topY: number }) =>
+    actor.topY + ACTOR_HEAD_R + ACTOR_BODY_H / 2;
+
+  const getCenter = (id: string): { x: number; y: number; isUc: boolean } | null => {
     const a = actorMap.get(id);
-    if (a) return { x: a.cx, y: a.cy + ACTOR_BODY_MID, isActor: true };
+    if (a) return { x: a.cx, y: actorCenterY(a), isUc: false };
     const u = ucMap.get(id);
-    if (u) return { x: u.cx, y: u.cy, isActor: false };
+    if (u) return { x: u.cx, y: u.cy, isUc: true };
     return null;
   };
 
-  const getEdgePoint = (center: { x: number; y: number; isActor: boolean }, toward: { x: number; y: number }): { x: number; y: number } => {
-    const dx = toward.x - center.x;
-    const dy = toward.y - center.y;
+  const getEdgePoint = (c: { x: number; y: number; isUc: boolean }, toward: { x: number; y: number }) => {
+    const dx = toward.x - c.x, dy = toward.y - c.y;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const ux = dx / len, uy = dy / len;
-    if (center.isActor) {
-      return { x: center.x + ux * 10, y: center.y + uy * 10 };
+    if (c.isUc) {
+      const t = 1 / Math.sqrt((ux / UC_RX) ** 2 + (uy / UC_RY) ** 2);
+      return { x: c.x + ux * t, y: c.y + uy * t };
     }
-    const rx = UC_W / 2, ry = UC_H / 2;
-    const t = Math.min(Math.abs(rx / (ux || 0.001)), Math.abs(ry / (uy || 0.001)));
-    return { x: center.x + ux * t, y: center.y + uy * t };
+    return { x: c.x + ux * ACTOR_HEAD_R, y: c.y + uy * ACTOR_HEAD_R };
   };
 
-  const DARK_STROKE = '#6b7280';
+  const STROKE = '#6b7280';
 
   const relationshipLines = ucd.relationships.map((rel, i) => {
     const fromC = getCenter(rel.from);
     const toC = getCenter(rel.to);
     if (!fromC || !toC) return null;
-
-    const fromPt = getEdgePoint(fromC, toC);
-    const toPt = getEdgePoint(toC, fromC);
-
-    const dx = toPt.x - fromPt.x;
-    const dy = toPt.y - fromPt.y;
+    const fp = getEdgePoint(fromC, toC);
+    const tp = getEdgePoint(toC, fromC);
+    const dx = tp.x - fp.x, dy = tp.y - fp.y;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const ux = dx / len, uy = dy / len;
-    const midX = (fromPt.x + toPt.x) / 2;
-    const midY = (fromPt.y + toPt.y) / 2;
+    const midX = (fp.x + tp.x) / 2, midY = (fp.y + tp.y) / 2;
 
     if (rel.type === 'association') {
-      return (
-        <line key={i}
-          x1={fromPt.x} y1={fromPt.y} x2={toPt.x} y2={toPt.y}
-          stroke={DARK_STROKE} strokeWidth="1.5" />
-      );
+      return <line key={i} x1={fp.x} y1={fp.y} x2={tp.x} y2={tp.y} stroke={STROKE} strokeWidth="1.5" />;
     }
-
     if (rel.type === 'generalization') {
-      const ax = toPt.x, ay = toPt.y;
-      const triSize = 13;
+      const s = 13;
       return (
         <g key={i}>
-          <line x1={fromPt.x} y1={fromPt.y} x2={toPt.x} y2={toPt.y}
-            stroke={DARK_STROKE} strokeWidth="1.5" />
+          <line x1={fp.x} y1={fp.y} x2={tp.x} y2={tp.y} stroke={STROKE} strokeWidth="1.5" />
           <polygon
-            points={`${ax},${ay} ${ax - ux * triSize - uy * 7},${ay - uy * triSize + ux * 7} ${ax - ux * triSize + uy * 7},${ay - uy * triSize - ux * 7}`}
-            fill="white" stroke={DARK_STROKE} strokeWidth="1.5"
-          />
+            points={`${tp.x},${tp.y} ${tp.x - ux * s - uy * 6},${tp.y - uy * s + ux * 6} ${tp.x - ux * s + uy * 6},${tp.y - uy * s - ux * 6}`}
+            fill="white" stroke={STROKE} strokeWidth="1.5" />
         </g>
       );
     }
-
     const label = rel.type === 'include' ? '«include»' : rel.type === 'extend' ? '«extend»' : '';
-    const arrowTipX = toPt.x, arrowTipY = toPt.y;
-    const arrowSize = 10;
-
+    const arrowLen = 10;
     return (
       <g key={i}>
-        <line x1={fromPt.x} y1={fromPt.y} x2={arrowTipX - ux * arrowSize} y2={arrowTipY - uy * arrowSize}
-          stroke={DARK_STROKE} strokeWidth="1.5" strokeDasharray="6,3" />
+        <line x1={fp.x} y1={fp.y} x2={tp.x - ux * arrowLen} y2={tp.y - uy * arrowLen}
+          stroke={STROKE} strokeWidth="1.5" strokeDasharray="6,3" />
         <polygon
-          points={`${arrowTipX},${arrowTipY} ${arrowTipX - ux * arrowSize - uy * 5},${arrowTipY - uy * arrowSize + ux * 5} ${arrowTipX - ux * arrowSize + uy * 5},${arrowTipY - uy * arrowSize - ux * 5}`}
-          fill="white" stroke={DARK_STROKE} strokeWidth="1.5"
-        />
-        {label && (
-          <text x={midX} y={midY - 6}
-            textAnchor="middle" fontSize="10" fontStyle="italic"
-            fill={DARK_STROKE}>{label}</text>
-        )}
+          points={`${tp.x},${tp.y} ${tp.x - ux * arrowLen - uy * 5},${tp.y - uy * arrowLen + ux * 5} ${tp.x - ux * arrowLen + uy * 5},${tp.y - uy * arrowLen - ux * 5}`}
+          fill="white" stroke={STROKE} strokeWidth="1.5" />
+        {label && <text x={midX} y={midY - 7} textAnchor="middle" fontSize="10" fontStyle="italic" fill={STROKE}>{label}</text>}
       </g>
     );
   });
 
-  const legend = [
-    {
-      el: (
-        <svg width="30" height="16" viewBox="0 0 30 16">
-          <line x1="0" y1="8" x2="30" y2="8" stroke="#6b7280" strokeWidth="1.5" />
-        </svg>
-      ),
-      label: 'Association',
-    },
-    {
-      el: (
-        <svg width="40" height="16" viewBox="0 0 40 16">
-          <line x1="0" y1="8" x2="26" y2="8" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="4,2" />
-          <polygon points="40,8 27,3 27,13" fill="white" stroke="#6b7280" strokeWidth="1.5" />
-        </svg>
-      ),
-      label: '«include» / «extend»',
-    },
-    {
-      el: (
-        <svg width="40" height="16" viewBox="0 0 40 16">
-          <line x1="0" y1="8" x2="26" y2="8" stroke="#6b7280" strokeWidth="1.5" />
-          <polygon points="40,8 27,3 27,13" fill="white" stroke="#6b7280" strokeWidth="1.5" />
-        </svg>
-      ),
-      label: 'Generalization',
-    },
-  ];
-
   return (
     <div>
       <div className="flex flex-wrap gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs">
-        {legend.map((l, i) => (
+        {[
+          { line: <line x1="0" y1="8" x2="30" y2="8" stroke="#6b7280" strokeWidth="1.5" />, label: 'Association', w: 30 },
+          { line: <><line x1="0" y1="8" x2="24" y2="8" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="4,2" /><polygon points="34,8 22,3 22,13" fill="white" stroke="#6b7280" strokeWidth="1.5" /></>, label: '«include» / «extend»', w: 36 },
+          { line: <><line x1="0" y1="8" x2="24" y2="8" stroke="#6b7280" strokeWidth="1.5" /><polygon points="34,8 22,3 22,13" fill="white" stroke="#6b7280" strokeWidth="1.5" /></>, label: 'Generalization', w: 36 },
+        ].map((l, i) => (
           <div key={i} className="flex items-center gap-2">
-            {l.el}
+            <svg width={l.w} height="16" viewBox={`0 0 ${l.w} 16`}>{l.line}</svg>
             <span className="text-gray-600 dark:text-gray-400">{l.label}</span>
           </div>
         ))}
-        <div className="flex items-center gap-2 ml-4 text-gray-500 dark:text-gray-400 italic">
-          «include»: base→included (mandatory) &nbsp;|&nbsp; «extend»: extension→base (optional)
-        </div>
       </div>
-
       <div className="overflow-x-auto">
-        <svg
-          width={layout.totalW}
-          height={layout.totalH}
-          viewBox={`0 0 ${layout.totalW} ${layout.totalH}`}
-          className="mx-auto"
-        >
-          <rect
-            x={layout.systemX} y={layout.systemY}
-            width={layout.systemW} height={layout.systemH}
-            fill="none" stroke="#9ca3af" strokeWidth="2"
-          />
-          <text
-            x={layout.systemX + layout.systemW / 2}
-            y={layout.systemY + 18}
-            textAnchor="middle" fontSize="13" fontWeight="bold"
-            fill="#111827" className="dark:fill-gray-100"
-          >
+        <svg width={layout.totalW} height={layout.totalH} viewBox={`0 0 ${layout.totalW} ${layout.totalH}`} className="mx-auto">
+          <rect x={layout.systemX} y={layout.systemY} width={layout.systemW} height={layout.systemH}
+            fill="none" stroke="#9ca3af" strokeWidth="2" />
+          <text x={layout.systemX + layout.systemW / 2} y={layout.systemY + 20}
+            textAnchor="middle" fontSize="14" fontWeight="bold" fill="#111827" className="dark:fill-gray-100">
             {ucd.systemName}
           </text>
-          <line
-            x1={layout.systemX} y1={layout.systemY + SYSTEM_TITLE_H}
+          <line x1={layout.systemX} y1={layout.systemY + SYSTEM_TITLE_H}
             x2={layout.systemX + layout.systemW} y2={layout.systemY + SYSTEM_TITLE_H}
-            stroke="#d1d5db" strokeWidth="1"
-          />
+            stroke="#d1d5db" strokeWidth="1" />
 
           {relationshipLines}
 
           {layout.actors.map(actor => {
             const cx = actor.cx;
-            const top = actor.cy;
+            const headCY = actor.topY + ACTOR_HEAD_R;
+            const neckY = headCY + ACTOR_HEAD_R;
+            const bodyBotY = neckY + ACTOR_BODY_H;
+            const armY = neckY + ACTOR_BODY_H * 0.35;
+            const labelY = bodyBotY + ACTOR_LEG_H + 16;
             return (
               <g key={actor.id}>
-                <circle cx={cx} cy={top} r={10}
-                  fill="none" stroke="#374151" strokeWidth="1.5"
-                  className="dark:stroke-gray-300" />
-                <line x1={cx} y1={top + ACTOR_BODY_TOP} x2={cx} y2={top + ACTOR_BODY_BOT}
-                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <line x1={cx - 16} y1={top + ACTOR_BODY_MID} x2={cx + 16} y2={top + ACTOR_BODY_MID}
-                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <line x1={cx} y1={top + ACTOR_BODY_BOT} x2={cx - 13} y2={top + ACTOR_LEGS_BOT}
-                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <line x1={cx} y1={top + ACTOR_BODY_BOT} x2={cx + 13} y2={top + ACTOR_LEGS_BOT}
-                  stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
-                <text x={cx} y={top + ACTOR_LABEL_Y}
-                  textAnchor="middle" fontSize="11" fontWeight="500"
-                  fill="#111827" className="dark:fill-gray-100">
-                  {actor.name}
-                </text>
+                <circle cx={cx} cy={headCY} r={ACTOR_HEAD_R} fill="none" stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <line x1={cx} y1={neckY} x2={cx} y2={bodyBotY} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <line x1={cx - ACTOR_ARM_W} y1={armY} x2={cx + ACTOR_ARM_W} y2={armY} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <line x1={cx} y1={bodyBotY} x2={cx - 14} y2={bodyBotY + ACTOR_LEG_H} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <line x1={cx} y1={bodyBotY} x2={cx + 14} y2={bodyBotY + ACTOR_LEG_H} stroke="#374151" strokeWidth="1.5" className="dark:stroke-gray-300" />
+                <text x={cx} y={labelY} textAnchor="middle" fontSize="11" fontWeight="600" fill="#111827" className="dark:fill-gray-100">{actor.name}</text>
               </g>
             );
           })}
 
-          {layout.useCases.map(uc => (
-            <g key={uc.id}>
-              <ellipse
-                cx={uc.cx} cy={uc.cy}
-                rx={UC_W / 2} ry={UC_H / 2}
-                fill="#f0f9ff" stroke="#0284c7" strokeWidth="1.5"
-                className="dark:fill-sky-900/50 dark:stroke-sky-500"
-              />
-              <foreignObject
-                x={uc.cx - UC_W / 2 + 8} y={uc.cy - UC_H / 2 + 4}
-                width={UC_W - 16} height={UC_H - 8}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', fontSize: '11px', lineHeight: '1.3', color: '#0c4a6e' }}>
-                  {uc.label}
-                </div>
-              </foreignObject>
-            </g>
-          ))}
+          {layout.useCases.map(uc => {
+            const lines = wrapText(uc.label, 18);
+            const lineH = 13;
+            const totalTextH = lines.length * lineH;
+            return (
+              <g key={uc.id}>
+                <ellipse cx={uc.cx} cy={uc.cy} rx={UC_RX} ry={UC_RY}
+                  fill="#f0f9ff" stroke="#0284c7" strokeWidth="1.5"
+                  className="dark:fill-sky-900/60 dark:stroke-sky-400" />
+                {lines.map((line, li) => (
+                  <text key={li}
+                    x={uc.cx}
+                    y={uc.cy - totalTextH / 2 + li * lineH + lineH * 0.8}
+                    textAnchor="middle" fontSize="11" fill="#0c4a6e" className="dark:fill-sky-100">
+                    {line}
+                  </text>
+                ))}
+              </g>
+            );
+          })}
         </svg>
       </div>
     </div>
@@ -943,12 +889,11 @@ const DFD_LEVEL_COLORS: Record<number, { bg: string; border: string; label: stri
   2: { bg: 'bg-teal-50 dark:bg-teal-950', border: 'border-teal-200 dark:border-teal-700', label: 'Level 2 DFD' },
 };
 
-const EE_W = 100;
-const EE_H = 44;
-const PROC_R = 38;
-const DS_W = 130;
-const DS_H = 36;
-const DFD_PAD = 60;
+const EE_W = 110;
+const EE_H = 46;
+const PROC_R = 46;
+const DS_W = 140;
+const DS_H = 38;
 
 interface DfdNodePos {
   el: DfdElement;
@@ -960,44 +905,77 @@ function computeDfdLayout(level: DfdLevel): { nodes: DfdNodePos[]; svgW: number;
   const ees = level.elements.filter(e => e.type === 'external_entity');
   const procs = level.elements.filter(e => e.type === 'process');
   const dss = level.elements.filter(e => e.type === 'data_store');
-
   const nodes: DfdNodePos[] = [];
-  const svgW = Math.max(700, (procs.length + 1) * 180 + 160);
 
-  const procSpacing = (svgW - 200) / Math.max(procs.length, 1);
+  const PROC_COL_W = PROC_R * 2 + 40;
+  const DS_COL_W = DS_W + 40;
+  const EE_SIDE_W = EE_W + 60;
+
+  const procCols = Math.min(procs.length, 3);
+  const procRows = Math.ceil(procs.length / procCols);
+  const procZoneW = procCols * PROC_COL_W;
+  const procZoneH = procRows * (PROC_R * 2 + 50);
+
+  const dsRows = Math.ceil(dss.length / Math.max(1, Math.min(dss.length, 3)));
+  const dsZoneH = dsRows * (DS_H + 30);
+
+  const totalInnerH = procZoneH + (dss.length > 0 ? dsZoneH + 40 : 0);
+  const svgH = Math.max(380, totalInnerH + 120);
+  const svgW = Math.max(640, EE_SIDE_W * 2 + procZoneW + 80);
+
+  const procOffsetX = (svgW - procZoneW) / 2 + PROC_R;
+  const procOffsetY = (dss.length > 0 ? 80 : (svgH - procZoneH) / 2) + PROC_R;
+
   procs.forEach((p, i) => {
-    nodes.push({ el: p, x: 100 + i * procSpacing + procSpacing / 2, y: 160 });
-  });
-
-  const eeSide = Math.ceil(ees.length / 2);
-  ees.forEach((e, i) => {
-    const side = i < eeSide ? 'left' : 'right';
-    const idx = side === 'left' ? i : i - eeSide;
-    const y = DFD_PAD + idx * (EE_H + 40) + (EE_H + 40) / 2;
-    nodes.push({ el: e, x: side === 'left' ? DFD_PAD + EE_W / 2 : svgW - DFD_PAD - EE_W / 2, y });
+    const col = i % procCols;
+    const row = Math.floor(i / procCols);
+    nodes.push({ el: p, x: procOffsetX + col * PROC_COL_W, y: procOffsetY + row * (PROC_R * 2 + 50) });
   });
 
   dss.forEach((d, i) => {
-    const x = 100 + i * (DS_W + 40) + DS_W / 2;
-    nodes.push({ el: d, x, y: 320 });
+    const cols = Math.min(dss.length, 3);
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const dsZoneW = cols * DS_COL_W;
+    const dsOffsetX = (svgW - dsZoneW) / 2 + DS_W / 2;
+    nodes.push({ el: d, x: dsOffsetX + col * DS_COL_W, y: procOffsetY + procZoneH + 60 + row * (DS_H + 30) });
   });
 
-  const allY = nodes.map(n => n.y);
-  const svgH = Math.max(420, Math.max(...allY) + 120);
+  const leftEes = ees.slice(0, Math.ceil(ees.length / 2));
+  const rightEes = ees.slice(Math.ceil(ees.length / 2));
+
+  leftEes.forEach((e, i) => {
+    const y = (svgH / (leftEes.length + 1)) * (i + 1);
+    nodes.push({ el: e, x: EE_W / 2 + 20, y });
+  });
+  rightEes.forEach((e, i) => {
+    const y = (svgH / (rightEes.length + 1)) * (i + 1);
+    nodes.push({ el: e, x: svgW - EE_W / 2 - 20, y });
+  });
+
   return { nodes, svgW, svgH };
 }
 
-function getNodeCenter(nodes: DfdNodePos[], id: string): { x: number; y: number } | null {
-  const n = nodes.find(n => n.el.id === id);
-  if (!n) return null;
-  return { x: n.x, y: n.y };
+function dfdEdgePoint(pos: DfdNodePos, toward: { x: number; y: number }): { x: number; y: number } {
+  const dx = toward.x - pos.x, dy = toward.y - pos.y;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  if (pos.el.type === 'process') {
+    return { x: pos.x + ux * PROC_R, y: pos.y + uy * PROC_R };
+  }
+  const hw = pos.el.type === 'data_store' ? DS_W / 2 : EE_W / 2;
+  const hh = pos.el.type === 'data_store' ? DS_H / 2 : EE_H / 2;
+  const tx = ux === 0 ? Infinity : Math.abs(hw / ux);
+  const ty = uy === 0 ? Infinity : Math.abs(hh / uy);
+  const t = Math.min(tx, ty);
+  return { x: pos.x + ux * t, y: pos.y + uy * t };
 }
 
 function DfdSingleLevel({ level }: { level: DfdLevel }) {
   const { nodes, svgW, svgH } = computeDfdLayout(level);
+  const nodeMap = new Map(nodes.map(n => [n.el.id, n]));
   const colors = DFD_LEVEL_COLORS[level.level] ?? DFD_LEVEL_COLORS[1];
-
-  const arrowMarker = `marker-${level.level}`;
+  const markerId = `dfd-arrow-${level.level}`;
 
   return (
     <div className={`rounded-lg border ${colors.border} ${colors.bg} p-4 mb-6`}>
@@ -1025,8 +1003,8 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
         )}
         <div className="flex items-center gap-1.5">
           <svg width="30" height="12" viewBox="0 0 30 12">
-            <line x1="0" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="1.5" className="text-gray-500 dark:text-gray-400" />
-            <polygon points="30,6 20,2 20,10" fill="currentColor" className="text-gray-500 dark:text-gray-400" />
+            <line x1="0" y1="6" x2="20" y2="6" stroke="#6b7280" strokeWidth="1.5" />
+            <polygon points="30,6 19,2 19,10" fill="#6b7280" />
           </svg>
           <span className="text-gray-600 dark:text-gray-400">Data Flow</span>
         </div>
@@ -1035,44 +1013,31 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
       <div className="overflow-x-auto">
         <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto">
           <defs>
-            <marker id={arrowMarker} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <marker id={markerId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
             </marker>
           </defs>
 
           {level.flows.map((flow, fi) => {
-            const from = getNodeCenter(nodes, flow.from);
-            const to = getNodeCenter(nodes, flow.to);
-            if (!from || !to) return null;
-            const dx = to.x - from.x;
-            const dy = to.y - from.y;
-            const len = Math.sqrt(dx * dx + dy * dy) || 1;
-            const ux = dx / len, uy = dy / len;
-
-            const fEl = level.elements.find(e => e.id === flow.from);
-            const tEl = level.elements.find(e => e.id === flow.to);
-            const fromR = fEl?.type === 'process' ? PROC_R : fEl?.type === 'data_store' ? DS_H / 2 : EE_H / 2;
-            const toR = tEl?.type === 'process' ? PROC_R : tEl?.type === 'data_store' ? DS_H / 2 : EE_H / 2;
-
-            const x1 = from.x + ux * fromR;
-            const y1 = from.y + uy * fromR;
-            const x2 = to.x - ux * (toR + 10);
-            const y2 = to.y - uy * (toR + 10);
-            const midX = (x1 + x2) / 2;
-            const midY = (y1 + y2) / 2;
-
+            const fromNode = nodeMap.get(flow.from);
+            const toNode = nodeMap.get(flow.to);
+            if (!fromNode || !toNode) return null;
+            const fp = dfdEdgePoint(fromNode, toNode);
+            const tp = dfdEdgePoint(toNode, fromNode);
+            const midX = (fp.x + tp.x) / 2;
+            const midY = (fp.y + tp.y) / 2;
+            const labelW = flow.label.length * 5.5 + 8;
             return (
               <g key={fi}>
-                <line x1={x1} y1={y1} x2={x2} y2={y2}
+                <line x1={fp.x} y1={fp.y} x2={tp.x} y2={tp.y}
                   stroke="#6b7280" strokeWidth="1.5"
-                  markerEnd={`url(#${arrowMarker})`} />
-                <rect x={midX - flow.label.length * 3} y={midY - 10}
-                  width={flow.label.length * 6 + 4} height={16}
-                  rx="3" fill="white" fillOpacity="0.9" className="dark:fill-gray-900" />
-                <text x={midX} y={midY + 1}
+                  markerEnd={`url(#${markerId})`} />
+                <rect x={midX - labelW / 2} y={midY - 9} width={labelW} height={16}
+                  rx="3" fill="white" fillOpacity="0.92" stroke="#d1d5db" strokeWidth="0.5"
+                  className="dark:fill-gray-900" />
+                <text x={midX} y={midY + 2}
                   textAnchor="middle" dominantBaseline="middle"
-                  fontSize="9" fontFamily="monospace"
-                  fill="#374151" className="dark:fill-gray-300">
+                  fontSize="9" fontFamily="monospace" fill="#374151" className="dark:fill-gray-300">
                   {flow.label}
                 </text>
               </g>
@@ -1084,49 +1049,52 @@ function DfdSingleLevel({ level }: { level: DfdLevel }) {
               return (
                 <g key={el.id}>
                   <rect x={x - EE_W / 2} y={y - EE_H / 2} width={EE_W} height={EE_H}
-                    fill="white" stroke="#6b7280" strokeWidth="1.5" rx="2"
+                    fill="white" stroke="#6b7280" strokeWidth="1.5" rx="3"
                     className="dark:fill-gray-800 dark:stroke-gray-400" />
                   <text x={x} y={y} textAnchor="middle" dominantBaseline="middle"
-                    fontSize="11" fontWeight="500" fill="#111827"
-                    className="dark:fill-gray-100">
+                    fontSize="11" fontWeight="600" fill="#111827" className="dark:fill-gray-100">
                     {el.label}
                   </text>
                 </g>
               );
             }
             if (el.type === 'process') {
+              const lines = wrapText(el.label, 14);
+              const lineH = 12;
+              const totalTextH = lines.length * lineH;
               return (
                 <g key={el.id}>
                   <circle cx={x} cy={y} r={PROC_R}
                     fill="#e0f2fe" stroke="#0284c7" strokeWidth="1.5"
                     className="dark:fill-sky-900 dark:stroke-sky-500" />
-                  <foreignObject x={x - PROC_R + 4} y={y - PROC_R + 4}
-                    width={(PROC_R - 4) * 2} height={(PROC_R - 4) * 2}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', fontSize: '10px', lineHeight: '1.2', color: '#0c4a6e' }}>
-                      {el.label}
-                    </div>
-                  </foreignObject>
+                  {lines.map((line, li) => (
+                    <text key={li} x={x} y={y - totalTextH / 2 + li * lineH + lineH * 0.8}
+                      textAnchor="middle" fontSize="10" fill="#0c4a6e" className="dark:fill-sky-100">
+                      {line}
+                    </text>
+                  ))}
                 </g>
               );
             }
             if (el.type === 'data_store') {
               const left = x - DS_W / 2;
               const top = y - DS_H / 2;
+              const tabW = 26;
               return (
                 <g key={el.id}>
-                  <line x1={left} y1={top} x2={left + DS_W} y2={top}
-                    stroke="#d97706" strokeWidth="1.5" />
-                  <line x1={left} y1={top + DS_H} x2={left + DS_W} y2={top + DS_H}
-                    stroke="#d97706" strokeWidth="1.5" />
                   <rect x={left} y={top} width={DS_W} height={DS_H}
-                    fill="#fffbeb" fillOpacity="0.8" stroke="none"
-                    className="dark:fill-amber-950" />
-                  <line x1={left + 24} y1={top} x2={left + 24} y2={top + DS_H}
-                    stroke="#d97706" strokeWidth="1.5" />
-                  <text x={left + 24 + (DS_W - 24) / 2} y={y}
+                    fill="#fffbeb" stroke="#d97706" strokeWidth="1.5"
+                    className="dark:fill-amber-950 dark:stroke-amber-500" />
+                  <line x1={left + tabW} y1={top} x2={left + tabW} y2={top + DS_H}
+                    stroke="#d97706" strokeWidth="1.5" className="dark:stroke-amber-500" />
+                  <text x={left + tabW / 2} y={y} textAnchor="middle" dominantBaseline="middle"
+                    fontSize="9" fontWeight="700" fill="#92400e" className="dark:fill-amber-300">
+                    {el.id.replace(/[^0-9]/g, '') || '1'}
+                  </text>
+                  <text x={left + tabW + (DS_W - tabW) / 2} y={y}
                     textAnchor="middle" dominantBaseline="middle"
                     fontSize="10" fill="#92400e" className="dark:fill-amber-200">
-                    {el.label}
+                    {el.label.replace(/^D\d+\s*/, '')}
                   </text>
                 </g>
               );
