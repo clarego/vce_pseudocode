@@ -287,185 +287,100 @@ export interface DesignTools {
   mockup: MockupScreen[];
 }
 
+function parseJson<T>(raw: string): T {
+  let cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
+  const start = cleaned.indexOf('{') !== -1 ? cleaned.indexOf('{') : cleaned.indexOf('[');
+  const endBrace = cleaned.lastIndexOf('}');
+  const endBracket = cleaned.lastIndexOf(']');
+  const end = Math.max(endBrace, endBracket);
+  if (start !== -1 && end !== -1 && end > start) {
+    cleaned = cleaned.slice(start, end + 1);
+  }
+  return JSON.parse(cleaned) as T;
+}
+
 export const aiGenerateDesignTools = async (
   apiKey: string,
   code: string,
   codeType: 'pseudocode' | 'python' | 'javascript'
 ): Promise<DesignTools> => {
-  const systemPrompt = `You are a VCE Software Development teacher in Victoria, Australia.
-Analyse the given ${codeType} and produce all five VCAA-approved design tools in strict JSON.
+  const codeBlock = `${codeType}:\n${code}`;
 
-Return ONLY valid JSON matching this exact structure (no markdown, no extra text):
+  const [flowchartAndDd, ipoAndUcd, dfd, erdAndMockup] = await Promise.all([
+    callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
+Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) with this exact structure:
 {
   "flowchart": [
-    {
-      "id": "1",
-      "type": "terminal|process|decision|io|predefined",
-      "label": "text shown in shape",
-      "next": "id of next node (for non-decision)",
-      "yes": "id of yes-branch node (decisions only)",
-      "no": "id of no-branch node (decisions only)"
-    }
+    { "id": "1", "type": "terminal|process|decision|io|predefined", "label": "text", "next": "id", "yes": "id", "no": "id" }
   ],
   "dataDictionary": [
-    {
-      "name": "variableName",
-      "dataType": "Integer|Float|String|Boolean|Date|Array(Type)",
-      "formatForDisplay": "NNN.NN or XX..XX or DD/MM/YYYY etc",
-      "sizeBytes": "4 bytes",
-      "sizeDisplay": "6",
-      "description": "what this variable stores",
-      "example": "42",
-      "validation": "Must be > 0 or empty string if none"
-    }
-  ],
-  "ipoChart": {
-    "title": "Name of the main process",
-    "inputs": ["inputName (dataType)"],
-    "process": ["Step 1: plain English description"],
-    "outputs": ["outputName (dataType)"]
-  },
-  "ucd": {
-    "systemName": "Name of the system",
-    "actors": [
-      { "id": "a1", "name": "User", "side": "left" }
-    ],
-    "useCases": [
-      { "id": "uc1", "label": "Verb Noun phrase" }
-    ],
-    "relationships": [
-      { "type": "association|include|extend|generalization", "from": "id", "to": "id" }
-    ]
-  },
-  "dfd": [
-    {
-      "level": 0,
-      "title": "Context Diagram – SystemName",
-      "elements": [
-        { "id": "sys", "type": "process", "label": "SystemName" },
-        { "id": "e1", "type": "external_entity", "label": "User" }
-      ],
-      "flows": [
-        { "from": "e1", "to": "sys", "label": "input_data" },
-        { "from": "sys", "to": "e1", "label": "output_data" }
-      ]
-    },
-    {
-      "level": 1,
-      "title": "Level 1 DFD – SystemName",
-      "elements": [
-        { "id": "e1", "type": "external_entity", "label": "User" },
-        { "id": "p1", "type": "process", "label": "1 Process Name" },
-        { "id": "p2", "type": "process", "label": "2 Process Name" },
-        { "id": "ds1", "type": "data_store", "label": "D1 Data Store Name" }
-      ],
-      "flows": [
-        { "from": "e1", "to": "p1", "label": "input_data" },
-        { "from": "p1", "to": "ds1", "label": "stored_data" },
-        { "from": "ds1", "to": "p2", "label": "retrieved_data" },
-        { "from": "p2", "to": "e1", "label": "output_data" }
-      ]
-    },
-    {
-      "level": 2,
-      "title": "Level 2 DFD – Decomposition of Process 1",
-      "parentProcessId": "p1",
-      "elements": [
-        { "id": "e1", "type": "external_entity", "label": "User" },
-        { "id": "p1_1", "type": "process", "label": "1.1 Sub-process Name" },
-        { "id": "p1_2", "type": "process", "label": "1.2 Sub-process Name" }
-      ],
-      "flows": [
-        { "from": "e1", "to": "p1_1", "label": "input_data" },
-        { "from": "p1_1", "to": "p1_2", "label": "intermediate_data" },
-        { "from": "p1_2", "to": "e1", "label": "output_data" }
-      ]
-    }
-  ],
-  "erd": {
-    "entities": [
-      {
-        "id": "e1",
-        "name": "EntityName",
-        "isWeak": false,
-        "attributes": [
-          { "name": "entityID", "isPrimary": true, "isForeign": false, "isMultiValued": false, "isDerived": false },
-          { "name": "attributeName", "isPrimary": false, "isForeign": false, "isMultiValued": false, "isDerived": false }
-        ]
-      }
-    ],
-    "relationships": [
-      {
-        "id": "r1",
-        "name": "RELATIONSHIP_NAME",
-        "isWeak": false,
-        "entities": ["e1", "e2"],
-        "cardinality": { "e1": "one", "e2": "many" },
-        "participation": { "e1": "partial", "e2": "total" },
-        "attributes": []
-      }
-    ]
-  },
-  "mockup": [
-    {
-      "title": "Screen Title",
-      "width": 640,
-      "height": 480,
-      "widgets": [
-        { "id": "w1", "type": "menubar", "label": "File  Edit  Help", "x": 0, "y": 0, "width": 640, "height": 24 },
-        { "id": "w2", "type": "label", "label": "Enter your name:", "x": 20, "y": 50, "width": 160, "height": 24, "annotation": "Prompts the user" },
-        { "id": "w3", "type": "textbox", "label": "", "placeholder": "Type here...", "x": 190, "y": 50, "width": 200, "height": 28, "annotation": "User types their name" },
-        { "id": "w4", "type": "button", "label": "Submit", "x": 190, "y": 100, "width": 100, "height": 32, "annotation": "Triggers main calculation" },
-        { "id": "w5", "type": "label", "label": "Result:", "x": 20, "y": 160, "width": 80, "height": 24 },
-        { "id": "w6", "type": "label", "label": "—", "x": 110, "y": 160, "width": 280, "height": 24, "annotation": "Displays computed output" },
-        { "id": "w7", "type": "statusbar", "label": "Ready", "x": 0, "y": 456, "width": 640, "height": 24 }
-      ]
-    }
+    { "name": "var", "dataType": "Integer|Float|String|Boolean|Date|Array(Type)", "formatForDisplay": "NNN or XX..XX", "sizeBytes": "4 bytes", "sizeDisplay": "6", "description": "what stored", "example": "42", "validation": "rule or empty" }
   ]
 }
+Rules:
+- Flowchart: terminal (oval) START/END, process (rect) computations, decision (diamond) IF/loops with yes/no, io (parallelogram) INPUT/OUTPUT, predefined (striped rect) function calls. First node id "1" type "terminal" label "START". Last node terminal label "END".
+- Data Dictionary: ALL variables. VCAA types. N=digit X=char format notation. Include every variable used.`, codeBlock, 0.2),
 
-VCAA Rules:
-- Flowchart: terminal (oval) for START/END, process (rect) for computations, decision (diamond) for IF/loops with Yes/No branches, io (parallelogram) for INPUT/OUTPUT, predefined (striped rect) for function calls. First node id "1" type "terminal" label "START".
-- Data Dictionary: ALL variables. VCAA data types. N=digit, X=char format notation.
-- IPO chart: plain English process steps ONLY — no pseudocode syntax. Data items only in inputs/outputs.
-- UCD (strict UML 2.5): Identify actors (people/systems that interact with the system) and use cases (system functions).
-  - association: solid line, no arrowhead, between actor and use case. Use "from": actorId, "to": useCaseId.
-  - include: dashed arrow FROM base use case TO included use case (the base CALLS the included; it is mandatory). Use "from": baseUseCaseId, "to": includedUseCaseId, "type": "include".
-  - extend: dashed arrow FROM extending use case TO base use case (the optional/conditional behavior points AT the base it extends). Use "from": extendingUseCaseId, "to": baseUseCaseId, "type": "extend".
-  - generalization: solid line with hollow triangle FROM child TO parent. Use "from": childId, "to": parentId, "type": "generalization".
-  - Primary actors (initiate actions) go on the left (side: "left"). Secondary actors (support/respond) go on the right (side: "right").
-  - NEVER put actors inside the system boundary. System name goes INSIDE the rectangle at the top.
-- DFD Level 0 (Context Diagram): EXACTLY ONE process element (the system), external entities only, NO data stores, data flows named in snake_case. The single process id must be "sys".
-- DFD Level 1: numbered processes (label = "1 Name", "2 Name" etc), same external entities as Level 0, data stores appear (label = "D1 Name", "D2 Name"), all Level 0 data flows preserved. External entities CANNOT connect directly to data stores.
-- DFD Level 2: decomposes the FIRST complex process from Level 1, sub-processes numbered e.g. "1.1 Name", "1.2 Name". Balances with parent process flows.
-- All DFD data flow labels must use snake_case.
-- ERD: Identify all entities (nouns/objects) and relationships (verbs between entities) from the pseudocode/code. Include all relevant attributes. For cardinality use "one" or "many". For participation use "partial" or "total". Mark primary keys (isPrimary:true) and foreign keys (isForeign:true). Weak entities (isWeak:true) depend on a strong entity. Multi-valued attributes use isMultiValued:true. Derived attributes use isDerived:true.
-- Mockup: Generate 1–3 realistic GUI screen mockups representing the interface a user would see when running this program. Use your judgment about the best widget for each interaction:
-  - INPUT for a numeric value → textbox with appropriate placeholder
-  - INPUT for a choice from a fixed list → dropdown or radio buttons
-  - INPUT for a long text → textarea
-  - INPUT for yes/no → checkbox or radio
-  - OUTPUT of a list of items → listbox or table
-  - OUTPUT of a single value → label or read-only textbox
-  - Repeated data entry → table with rows
-  - Progress/loading → progressbar
-  - Always include a menubar at y:0 if the app has multiple screens or menu items
-  - Always include a statusbar at the bottom if relevant
-  - Use groupbox to group related widgets (e.g. "Search Criteria", "Results")
-  - Add annotation text on key widgets explaining what they do (max 8 words)
-  - Coordinates and sizes must be realistic: screen width 640, height 480 typical. Widgets must not overlap.
-  - Widget label is the visible text on the widget (button text, field label, groupbox title, etc.)
-  - For annotation: attach a short label pointing to the widget describing its purpose in plain English
-  - All x, y, width, height values must be integers. Ensure all widgets fit within the screen bounds.`;
-
-  const raw = await callClaude(apiKey, systemPrompt, `${codeType}:\n${code}`, 0.2);
-  let cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
-  const braceStart = cleaned.indexOf('{');
-  const braceEnd = cleaned.lastIndexOf('}');
-  if (braceStart !== -1 && braceEnd !== -1 && braceEnd > braceStart) {
-    cleaned = cleaned.slice(braceStart, braceEnd + 1);
+    callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
+Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) with this exact structure:
+{
+  "ipoChart": {
+    "title": "Process Name",
+    "inputs": ["item (Type)"],
+    "process": ["1. Plain English step"],
+    "outputs": ["item (Type)"]
+  },
+  "ucd": {
+    "systemName": "System Name",
+    "actors": [{ "id": "a1", "name": "User", "side": "left" }],
+    "useCases": [{ "id": "uc1", "label": "Verb Noun" }],
+    "relationships": [{ "type": "association|include|extend|generalization", "from": "id", "to": "id" }]
   }
-  return JSON.parse(cleaned) as DesignTools;
+}
+Rules:
+- IPO: plain English process steps only, no pseudocode syntax. Data items only in inputs/outputs.
+- UCD (strict UML 2.5): association from actorId to useCaseId. include: base→included (mandatory call). extend: extending→base (optional). generalization: child→parent. Primary actors left, secondary right.`, codeBlock, 0.2),
+
+    callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
+Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) — a JSON array of 3 DFD levels:
+[
+  { "level": 0, "title": "Context Diagram – Name", "elements": [{ "id": "sys", "type": "process", "label": "SystemName" }, { "id": "e1", "type": "external_entity", "label": "User" }], "flows": [{ "from": "e1", "to": "sys", "label": "input_data" }] },
+  { "level": 1, "title": "Level 1 DFD – Name", "elements": [{ "id": "e1", "type": "external_entity", "label": "User" }, { "id": "p1", "type": "process", "label": "1 Name" }, { "id": "ds1", "type": "data_store", "label": "D1 Name" }], "flows": [{ "from": "e1", "to": "p1", "label": "data" }] },
+  { "level": 2, "title": "Level 2 DFD – Decomposition", "parentProcessId": "p1", "elements": [{ "id": "p1_1", "type": "process", "label": "1.1 Name" }], "flows": [] }
+]
+Rules:
+- Level 0: EXACTLY ONE process (id "sys"), external entities only, NO data stores, snake_case flow labels.
+- Level 1: numbered processes "1 Name", same external entities, data stores "D1 Name", external entities CANNOT connect to data stores directly.
+- Level 2: decomposes first complex process, sub-processes "1.1 Name" etc, balances parent flows.`, codeBlock, 0.2),
+
+    callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
+Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) with this exact structure:
+{
+  "erd": {
+    "entities": [{ "id": "e1", "name": "Entity", "isWeak": false, "attributes": [{ "name": "id", "isPrimary": true, "isForeign": false, "isMultiValued": false, "isDerived": false }] }],
+    "relationships": [{ "id": "r1", "name": "RELATES", "isWeak": false, "entities": ["e1","e2"], "cardinality": {"e1":"one","e2":"many"}, "participation": {"e1":"partial","e2":"total"}, "attributes": [] }]
+  },
+  "mockup": [
+    { "title": "Screen Title", "width": 640, "height": 480, "widgets": [
+      { "id": "w1", "type": "menubar", "label": "File  Edit  Help", "x": 0, "y": 0, "width": 640, "height": 24 },
+      { "id": "w2", "type": "label", "label": "Field:", "x": 20, "y": 50, "width": 120, "height": 24 },
+      { "id": "w3", "type": "textbox", "label": "", "placeholder": "Enter value", "x": 150, "y": 50, "width": 200, "height": 28, "annotation": "User input field" },
+      { "id": "w4", "type": "button", "label": "Submit", "x": 150, "y": 100, "width": 100, "height": 32, "annotation": "Submits the form" },
+      { "id": "w5", "type": "statusbar", "label": "Ready", "x": 0, "y": 456, "width": 640, "height": 24 }
+    ]}
+  ]
+}
+Rules:
+- ERD: all entities (nouns), relationships (verbs), all attributes, cardinality "one"/"many", participation "partial"/"total", mark isPrimary/isForeign/isMultiValued/isDerived.
+- Mockup: 1–3 screens. INPUT numeric→textbox, choice→dropdown/radio, long text→textarea, yes/no→checkbox. OUTPUT list→listbox/table, single value→label. All x/y/width/height integers, no overlapping widgets, fit within screen bounds. Widget label is visible text.`, codeBlock, 0.2),
+  ]);
+
+  const { flowchart, dataDictionary } = parseJson<{ flowchart: FlowchartNode[]; dataDictionary: DataDictionaryRow[] }>(flowchartAndDd);
+  const { ipoChart, ucd } = parseJson<{ ipoChart: IpoChart; ucd: DesignTools['ucd'] }>(ipoAndUcd);
+  const dfdParsed = parseJson<DfdLevel[]>(dfd);
+  const { erd, mockup } = parseJson<{ erd: DesignTools['erd']; mockup: MockupScreen[] }>(erdAndMockup);
+
+  return { flowchart, dataDictionary, ipoChart, ucd, dfd: dfdParsed, erd, mockup };
 };
 
 export const aiAutocomplete = async (
