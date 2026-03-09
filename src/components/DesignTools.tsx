@@ -40,14 +40,31 @@ function getTabTextContent(tab: Tab, data: DesignToolsData): string {
   const lines: string[] = [];
 
   if (tab === 'flowchart' && data.flowchart) {
+    const nodes = data.flowchart;
+    const idToIndex = new Map(nodes.map((n, i) => [n.id, i + 1]));
+    const shapeLabel = (type: string) => {
+      switch (type) {
+        case 'terminal': return 'Terminal';
+        case 'process': return 'Process';
+        case 'decision': return 'Decision';
+        case 'io': return 'Input/Output';
+        case 'predefined': return 'Predefined Process';
+        default: return type;
+      }
+    };
     lines.push('FLOWCHART');
-    lines.push('='.repeat(40));
-    data.flowchart.forEach(n => {
-      const type = n.type.toUpperCase();
-      lines.push(`[${type}] ${n.label}`);
-      if (n.yes) lines.push(`  -> YES: ${n.yes}`);
-      if (n.no) lines.push(`  -> NO: ${n.no}`);
-      if (n.next) lines.push(`  -> NEXT: ${n.next}`);
+    lines.push('='.repeat(50));
+    nodes.forEach((n, i) => {
+      const step = i + 1;
+      lines.push('');
+      lines.push(`Step ${step} [${shapeLabel(n.type)}]`);
+      lines.push(`  ${n.label}`);
+      if (n.type === 'decision') {
+        if (n.yes) lines.push(`  YES  →  Step ${idToIndex.get(n.yes) ?? n.yes}`);
+        if (n.no)  lines.push(`  NO   →  Step ${idToIndex.get(n.no)  ?? n.no}`);
+      } else if (n.next) {
+        lines.push(`  →  Step ${idToIndex.get(n.next) ?? n.next}`);
+      }
     });
   }
 
