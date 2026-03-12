@@ -16,16 +16,12 @@ import {
 } from '../utils/aiService';
 import { ExerciseKeyboard } from './ExerciseKeyboard';
 import { DesignTools } from './DesignTools';
-import { recordQuestionScore } from '../lib/scoringService';
 
 interface StudyModeProps {
   openAiKey?: string | null;
-  sessionId?: string | null;
-  username?: string;
-  onScoreRecorded?: () => void;
 }
 
-export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey, sessionId, username, onScoreRecorded }) => {
+export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
   const [selectedChapter, setSelectedChapter] = useState(0);
   const [selectedLesson, setSelectedLesson] = useState(0);
   const [selectedExercise, setSelectedExercise] = useState<number | null>(null);
@@ -51,7 +47,6 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey, sessionId, user
   const autocompleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaWrapperRef = useRef<HTMLDivElement>(null);
-  const scoredExercises = useRef<Set<string>>(new Set());
 
   const currentChapter = studyContentData.chapters[selectedChapter];
   const chaptersLessons = studyContentData.lessons.filter(
@@ -231,18 +226,6 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey, sessionId, user
       );
       setTeacherFeedback(result);
 
-      if (sessionId && username && !scoredExercises.current.has(currentExercise.id)) {
-        scoredExercises.current.add(currentExercise.id);
-        await recordQuestionScore({
-          sessionId,
-          username,
-          exerciseId: currentExercise.id,
-          exerciseTitle: currentExercise.title,
-          difficulty: currentExercise.difficulty,
-          hasMistakes: result.hasMistakes,
-        });
-        onScoreRecorded?.();
-      }
     } catch {
       setTeacherFeedback({ hasMistakes: false, feedback: 'Could not get feedback right now. Please try again.' });
     } finally {
@@ -847,20 +830,8 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey, sessionId, user
                         <h5 className="font-semibold text-slate-900 dark:text-slate-100">Answer:</h5>
                         {!showAnswer && (
                           <button
-                            onClick={async () => {
+                            onClick={() => {
                               setShowAnswer(true);
-                              if (sessionId && username && currentExercise && !scoredExercises.current.has(currentExercise.id)) {
-                                scoredExercises.current.add(currentExercise.id);
-                                await recordQuestionScore({
-                                  sessionId,
-                                  username,
-                                  exerciseId: currentExercise.id,
-                                  exerciseTitle: currentExercise.title,
-                                  difficulty: currentExercise.difficulty,
-                                  hasMistakes: true,
-                                });
-                                onScoreRecorded?.();
-                              }
                             }}
                             className="flex items-center gap-2 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm font-medium"
                           >

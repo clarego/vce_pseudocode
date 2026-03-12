@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal, AlignJustify, X, Trophy } from 'lucide-react';
+import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal, AlignJustify, X } from 'lucide-react';
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
 import { ConversionPanel } from './components/ConversionPanel';
@@ -7,11 +7,7 @@ import { DesignTools } from './components/DesignTools';
 import { Toolbar } from './components/Toolbar';
 import { HelpModal } from './components/HelpModal';
 import { StudyMode } from './components/StudyMode';
-import { LoginModal } from './components/LoginModal';
-import { Leaderboard } from './components/Leaderboard';
-import { SessionScorePanel } from './components/SessionScorePanel';
 import { templates } from './data/templates';
-import { createSession, upsertLeaderboard, getSessionScores, QuestionScore } from './lib/scoringService';
 import { fetchClaudeKey } from './lib/supabaseAuth';
 import { pseudocodeToCode, codeToPseudocode } from './utils/converters';
 import { aiPseudocodeToCode, aiCodeToPseudocode, aiCorrectPseudocode, aiGenerateDesignTools } from './utils/aiService';
@@ -32,18 +28,9 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [filename, setFilename] = useState('pseudocode');
 
-  const [showLogin, setShowLogin] = useState(false);
-  const [loginReason, setLoginReason] = useState<string | undefined>(undefined);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('session_username'));
-  const [loggedInUser, setLoggedInUser] = useState(() => localStorage.getItem('session_username') ?? '');
   const [openAiKey, setOpenAiKey] = useState<string | null>(null);
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('unchecked');
   const [aiLoading, setAiLoading] = useState(false);
-
-  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem('session_id'));
-  const [sessionScores, setSessionScores] = useState<QuestionScore[]>([]);
-  const [sessionTotal, setSessionTotal] = useState(0);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   const [showDesignTools, setShowDesignTools] = useState(false);
   const [designToolsData, setDesignToolsData] = useState<DesignToolsData | null>(null);
@@ -91,65 +78,15 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('session_username');
-    if (savedUser && !openAiKey) {
-      fetchClaudeKey().then(key => {
-        if (key) {
-          setOpenAiKey(key);
-          setApiKeyStatus('valid');
-        } else {
-          setApiKeyStatus('invalid');
-        }
-      });
-    }
+    fetchClaudeKey().then(key => {
+      if (key) {
+        setOpenAiKey(key);
+        setApiKeyStatus('valid');
+      } else {
+        setApiKeyStatus('invalid');
+      }
+    });
   }, []);
-
-  const handleLoginSuccess = async (key: string | null, username: string) => {
-    setIsLoggedIn(true);
-    setLoggedInUser(username);
-    setShowLogin(false);
-    setLoginReason(undefined);
-    setOpenAiKey(key);
-    setSessionScores([]);
-    setSessionTotal(0);
-
-    if (key) {
-      setApiKeyStatus('valid');
-    } else {
-      setApiKeyStatus('invalid');
-    }
-
-    const newSessionId = await createSession(username);
-    setSessionId(newSessionId);
-    localStorage.setItem('session_username', username);
-    if (newSessionId) localStorage.setItem('session_id', newSessionId);
-  };
-
-  const handleLogout = async () => {
-    if (sessionId && loggedInUser) {
-      await upsertLeaderboard(loggedInUser, sessionId);
-    }
-    setIsLoggedIn(false);
-    setLoggedInUser('');
-    setOpenAiKey(null);
-    setApiKeyStatus('unchecked');
-    setSessionId(null);
-    setSessionScores([]);
-    setSessionTotal(0);
-    localStorage.removeItem('session_username');
-    localStorage.removeItem('session_id');
-    localStorage.removeItem('pseudocode_remembered_user');
-  };
-
-  const refreshSessionScores = useCallback(async () => {
-    if (!sessionId) return;
-    const scores = await getSessionScores(sessionId);
-    setSessionScores(scores);
-    setSessionTotal(scores.reduce((s, r) => s + r.points_earned, 0));
-    if (loggedInUser) {
-      await upsertLeaderboard(loggedInUser, sessionId);
-    }
-  }, [sessionId, loggedInUser]);
 
   const getIndentLevel = (line: string): number => {
     let spaces = 0;
@@ -321,11 +258,6 @@ function App() {
   };
 
   const handleGenerateDesignTools = async () => {
-    if (!isLoggedIn) {
-      setLoginReason('Sign in to access Design Tools — AI-powered flowcharts, data dictionaries, ERDs, and more.');
-      setShowLogin(true);
-      return;
-    }
     if (showDesignTools && designToolsData) {
       setShowDesignTools(false);
       return;
@@ -418,49 +350,13 @@ function App() {
                 </button>
               </div>
 
-              {isLoggedIn ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs sm:text-sm text-blue-100 hidden sm:inline">
-                    <span className="font-semibold text-white">{loggedInUser}</span>
-                  </span>
-                  {sessionTotal > 0 && (
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-400/20 border border-yellow-400/40 text-yellow-300 text-xs font-bold">
-                      <Trophy className="w-3.5 h-3.5" />
-                      {sessionTotal}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setShowLeaderboard(v => !v)}
-                    className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm transition-colors ${showLeaderboard ? 'bg-yellow-400/30 text-yellow-200 border border-yellow-400/50' : 'bg-white/20 hover:bg-white/30 text-white'}`}
-                  >
-                    <Trophy className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Board</span>
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="px-2 sm:px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs sm:text-sm transition-colors"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowLogin(true)}
-                  className="flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-colors border border-white/30 text-sm"
-                >
-                  Sign In
-                </button>
-              )}
-
-              {isLoggedIn && (
-                <div title={apiKeyStatus === 'valid' ? 'AI features active' : 'AI key invalid or unavailable'}>
-                  {aiLoading ? (
-                    <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
-                  ) : (
-                    <Settings className={`w-5 h-5 sm:w-6 sm:h-6 ${gearColor}`} />
-                  )}
-                </div>
-              )}
+              <div title={apiKeyStatus === 'valid' ? 'AI features active' : 'AI key unavailable'}>
+                {aiLoading ? (
+                  <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
+                ) : (
+                  <Settings className={`w-5 h-5 sm:w-6 sm:h-6 ${gearColor}`} />
+                )}
+              </div>
 
               {mode === 'editor' && (
                 <div className="hidden sm:flex items-center gap-2">
@@ -484,17 +380,8 @@ function App() {
           <div className="flex-1 overflow-hidden">
             <StudyMode
               openAiKey={openAiKey}
-              sessionId={sessionId}
-              username={loggedInUser || undefined}
-              onScoreRecorded={refreshSessionScores}
             />
           </div>
-          {showLeaderboard && isLoggedIn && (
-            <div className="w-80 flex-shrink-0 overflow-y-auto border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 space-y-4">
-              <Leaderboard currentUsername={loggedInUser} />
-              <SessionScorePanel scores={sessionScores} sessionTotal={sessionTotal} />
-            </div>
-          )}
         </div>
       ) : (
         <>
@@ -511,7 +398,7 @@ function App() {
             onImportCode={handleImportCode}
             onCorrectPseudocode={handleCorrectPseudocode}
             onGenerateDesignTools={handleGenerateDesignTools}
-            hasAI={isLoggedIn && apiKeyStatus === 'valid'}
+            hasAI={apiKeyStatus === 'valid'}
             aiLoading={aiLoading}
             designToolsActive={showDesignTools}
           />
@@ -538,13 +425,6 @@ function App() {
               </div>
               <ReservedWordPanel onWordClick={(w) => { handleWordClick(w); setShowMobileWordPanel(false); }} />
             </div>
-
-            {showLeaderboard && isLoggedIn && (
-            <div className="w-80 flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 space-y-4">
-              <Leaderboard currentUsername={loggedInUser} />
-              <SessionScorePanel scores={sessionScores} sessionTotal={sessionTotal} />
-            </div>
-          )}
 
           <div ref={containerRef} className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0">
               <div
@@ -629,13 +509,6 @@ function App() {
       </footer>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-      {showLogin && (
-        <LoginModal
-          onClose={() => { setShowLogin(false); setLoginReason(undefined); }}
-          onLoginSuccess={(key, username) => handleLoginSuccess(key, username)}
-          reason={loginReason}
-        />
-      )}
     </div>
   );
 }
