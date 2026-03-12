@@ -31,6 +31,7 @@ interface ToolbarProps {
   hasAI: boolean;
   aiLoading: boolean;
   designToolsActive: boolean;
+  designToolsBtnRef?: React.Ref<HTMLButtonElement>;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -49,6 +50,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   hasAI,
   aiLoading,
   designToolsActive,
+  designToolsBtnRef,
 }) => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
@@ -279,6 +281,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           )}
 
           <button
+            ref={designToolsBtnRef}
             onClick={onGenerateDesignTools}
             disabled={aiLoading && !designToolsActive}
             className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-sm ${

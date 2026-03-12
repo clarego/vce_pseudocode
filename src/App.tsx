@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal, AlignJustify, X } from 'lucide-react';
 import { PseudocodeEditor } from './components/PseudocodeEditor';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
@@ -16,12 +16,95 @@ import { exportToPDF, downloadFile } from './utils/pdfExport';
 
 type ApiKeyStatus = 'unchecked' | 'valid' | 'invalid';
 type Theme = 'dark' | 'light' | 'hacker';
+type OnboardingStep = 'editor' | 'design-tools' | 'done';
+
+interface OnboardingHintProps {
+  targetRef: React.RefObject<HTMLButtonElement | null>;
+  label: string;
+  visible: boolean;
+  onDismiss: () => void;
+}
+
+function OnboardingHint({ targetRef, label, visible, onDismiss }: OnboardingHintProps) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!visible || !targetRef.current) return;
+    const update = () => {
+      const rect = targetRef.current?.getBoundingClientRect();
+      if (rect) setPos({ top: rect.bottom + 10, left: rect.left + rect.width / 2 });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [visible, targetRef]);
+
+  if (!visible || !pos) return null;
+
+  return (
+    <div
+      className="fixed z-50 pointer-events-none"
+      style={{ top: pos.top, left: pos.left, transform: 'translateX(-50%)' }}
+    >
+      <div className="flex flex-col items-center gap-1">
+        <div
+          className="pointer-events-auto cursor-pointer"
+          onClick={onDismiss}
+          style={{ animation: 'onboard-bounce 1s ease-in-out infinite' }}
+        >
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M14 4 L14 22" stroke="#facc15" strokeWidth="3" strokeLinecap="round"/>
+            <path d="M6 14 L14 24 L22 14" stroke="#facc15" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div
+          className="pointer-events-auto cursor-pointer px-4 py-2 rounded-xl font-bold text-sm shadow-2xl border-2 border-yellow-300 whitespace-nowrap"
+          style={{
+            background: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+            color: '#1c1917',
+            boxShadow: '0 0 20px rgba(251,191,36,0.6), 0 4px 16px rgba(0,0,0,0.4)',
+            animation: 'onboard-pulse 1.5s ease-in-out infinite',
+          }}
+          onClick={onDismiss}
+        >
+          {label}
+        </div>
+      </div>
+      <style>{`
+        @keyframes onboard-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(6px); }
+        }
+        @keyframes onboard-pulse {
+          0%, 100% { box-shadow: 0 0 16px rgba(251,191,36,0.5), 0 4px 16px rgba(0,0,0,0.4); }
+          50% { box-shadow: 0 0 32px rgba(251,191,36,0.9), 0 4px 20px rgba(0,0,0,0.5); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const IF_ELSE_TEMPLATE = `BEGIN
+INPUT age
+IF age ≥ 18 THEN
+    OUTPUT "Adult"
+ELSE
+    OUTPUT "Minor"
+END IF
+END`;
 
 function App() {
   const [mode, setMode] = useState<'editor' | 'study'>('study');
   const [pseudocode, setPseudocode] = useState('BEGIN\n\nEND');
   const [cursorPosition, setCursorPosition] = useState(0);
   const [theme, setTheme] = useState<Theme>('dark');
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('editor');
+  const editorBtnRef = useRef<HTMLButtonElement>(null);
+  const designToolsBtnRef = useRef<HTMLButtonElement>(null);
   const [showConversion, setShowConversion] = useState(false);
   const [convertedCode, setConvertedCode] = useState('');
   const [convertedLanguage, setConvertedLanguage] = useState<'python' | 'javascript'>('python');
@@ -258,6 +341,9 @@ function App() {
   };
 
   const handleGenerateDesignTools = async () => {
+    if (onboardingStep === 'design-tools') {
+      setOnboardingStep('done');
+    }
     if (showDesignTools && designToolsData) {
       setShowDesignTools(false);
       return;
@@ -338,7 +424,15 @@ function App() {
                   <span className="hidden xs:inline sm:inline">Study</span>
                 </button>
                 <button
-                  onClick={() => setMode('editor')}
+                  ref={editorBtnRef}
+                  onClick={() => {
+                    setMode('editor');
+                    if (onboardingStep === 'editor') {
+                      setPseudocode(IF_ELSE_TEMPLATE);
+                      setCursorPosition(0);
+                      setOnboardingStep('design-tools');
+                    }
+                  }}
                   className={`flex items-center gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md transition-colors text-sm ${
                     mode === 'editor'
                       ? theme === 'hacker' ? 'bg-green-500/20 text-green-300 font-semibold border border-green-500/40' : 'bg-white text-blue-600 font-semibold'
@@ -401,6 +495,7 @@ function App() {
             hasAI={apiKeyStatus === 'valid'}
             aiLoading={aiLoading}
             designToolsActive={showDesignTools}
+            designToolsBtnRef={designToolsBtnRef}
           />
 
           <div className="flex-1 flex overflow-hidden relative">
@@ -509,6 +604,24 @@ function App() {
       </footer>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
+      <OnboardingHint
+        targetRef={editorBtnRef}
+        label="Click Me! — Try the Editor"
+        visible={onboardingStep === 'editor'}
+        onDismiss={() => {
+          setMode('editor');
+          setPseudocode(IF_ELSE_TEMPLATE);
+          setCursorPosition(0);
+          setOnboardingStep('design-tools');
+        }}
+      />
+      <OnboardingHint
+        targetRef={designToolsBtnRef}
+        label="Click Me! — Try Design Tools"
+        visible={onboardingStep === 'design-tools' && mode === 'editor'}
+        onDismiss={handleGenerateDesignTools}
+      />
     </div>
   );
 }
