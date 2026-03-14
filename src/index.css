@@ -11,6 +11,14 @@
     input, textarea, select {
       font-size: 16px;
     }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+
+    * {
+      -webkit-overflow-scrolling: touch;
+    }
   }
 }
 

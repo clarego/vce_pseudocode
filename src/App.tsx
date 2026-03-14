@@ -121,8 +121,16 @@ function App() {
   const [isDesignToolsLoading, setIsDesignToolsLoading] = useState(false);
   const [showMobileWordPanel, setShowMobileWordPanel] = useState(false);
   const [rightPanelWidth, setRightPanelWidth] = useState(50);
+  const [isMobile, setIsMobile] = useState(false);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -521,10 +529,49 @@ function App() {
               <ReservedWordPanel onWordClick={(w) => { handleWordClick(w); setShowMobileWordPanel(false); }} />
             </div>
 
-          <div ref={containerRef} className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0">
+          <div ref={containerRef} className="flex-1 flex flex-col sm:flex-row overflow-hidden min-w-0 relative">
+              {isMobile && (showConversion || showDesignTools) ? (
+                <div className="absolute inset-0 z-20 flex flex-col bg-white dark:bg-gray-800">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      {showDesignTools ? 'Design Tools' : 'Converted Code'}
+                    </span>
+                    <button
+                      onClick={() => { setShowConversion(false); setShowDesignTools(false); }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                    >
+                      <X className="w-3 h-3" />
+                      Back to Editor
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {showConversion && (
+                      <ConversionPanel
+                        content={convertedCode}
+                        language={convertedLanguage}
+                        onClose={() => setShowConversion(false)}
+                      />
+                    )}
+                    {showDesignTools && (
+                      <DesignTools
+                        data={designToolsData}
+                        isLoading={isDesignToolsLoading}
+                        error={designToolsError}
+                        onRegenerate={() => {
+                          setDesignToolsData(null);
+                          setDesignToolsError(null);
+                          runDesignToolsGeneration();
+                        }}
+                        onClose={() => setShowDesignTools(false)}
+                      />
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               <div
                 className="flex-1 sm:flex-none transition-none border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700"
-                style={(showConversion || showDesignTools) ? { width: `${100 - rightPanelWidth}%` } : { width: '100%' }}
+                style={!isMobile && (showConversion || showDesignTools) ? { width: `${100 - rightPanelWidth}%` } : { width: '100%' }}
               >
                 <div className="h-full bg-white dark:bg-gray-800 rounded-tl-lg shadow-inner">
                   <div className="h-full flex flex-col">
@@ -536,15 +583,6 @@ function App() {
                         <AlignJustify className="w-3 h-3" />
                         Words
                       </button>
-                      {(showConversion || showDesignTools) && (
-                        <button
-                          onClick={() => { setShowConversion(false); setShowDesignTools(false); }}
-                          className="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 ml-auto"
-                        >
-                          <X className="w-3 h-3" />
-                          Close Panel
-                        </button>
-                      )}
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <EditorPane
@@ -557,7 +595,7 @@ function App() {
                 </div>
               </div>
 
-              {(showConversion || showDesignTools) && (
+              {!isMobile && (showConversion || showDesignTools) && (
                 <div
                   className="hidden sm:flex w-1.5 flex-shrink-0 cursor-col-resize items-center justify-center group relative z-10"
                   onMouseDown={handleMouseDown}
@@ -567,7 +605,7 @@ function App() {
                 </div>
               )}
 
-              {showConversion && (
+              {!isMobile && showConversion && (
                 <div className="flex-1 sm:flex-none overflow-hidden" style={{ width: `${rightPanelWidth}%` }}>
                   <ConversionPanel
                     content={convertedCode}
@@ -577,7 +615,7 @@ function App() {
                 </div>
               )}
 
-              {showDesignTools && (
+              {!isMobile && showDesignTools && (
                 <div className="flex-1 sm:flex-none overflow-y-auto bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700" style={{ width: `${rightPanelWidth}%` }}>
                   <DesignTools
                     data={designToolsData}
@@ -597,10 +635,25 @@ function App() {
         </>
       )}
 
-      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 text-center">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          VCE Software Development Pseudocode Editor - Built for Victorian Curriculum Standards
-        </p>
+      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 sm:py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center gap-1">
+          {mode === 'editor' && (
+            <div className="flex items-center gap-2 sm:hidden">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Filename:</label>
+              <input
+                type="text"
+                value={filename}
+                onChange={(e) => setFilename(e.target.value)}
+                className="flex-1 px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter filename"
+              />
+            </div>
+          )}
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center">
+            VCE Software Development Pseudocode Editor
+            <span className="hidden sm:inline"> - Built for Victorian Curriculum Standards</span>
+          </p>
+        </div>
       </footer>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}

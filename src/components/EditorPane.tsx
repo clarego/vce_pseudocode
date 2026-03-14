@@ -18,10 +18,19 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   const [pseudoCollapsed, setPseudoCollapsed] = useState(false);
   const [pythonCollapsed, setPythonCollapsed] = useState(false);
   const [splitPct, setSplitPct] = useState(50);
+  const [mobileTab, setMobileTab] = useState<'pseudo' | 'python'>('pseudo');
+  const [isMobile, setIsMobile] = useState(false);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const pythonCode = pseudocodeToCode(value, 'python');
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -50,6 +59,56 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
       document.removeEventListener('mouseup', onUp);
     };
   }, []);
+
+  if (isMobile) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+          <button
+            onClick={() => setMobileTab('pseudo')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
+              mobileTab === 'pseudo'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-gray-800'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <FileCode className="w-3.5 h-3.5" />
+            Pseudocode
+          </button>
+          <button
+            onClick={() => setMobileTab('python')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
+              mobileTab === 'python'
+                ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400 bg-white dark:bg-gray-800'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5" />
+            Python
+            <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700 uppercase">live</span>
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          {mobileTab === 'pseudo' ? (
+            <PseudocodeEditor
+              value={value}
+              onChange={onChange}
+              onCursorPositionChange={onCursorPositionChange}
+            />
+          ) : (
+            <div className="h-full bg-[#1e1e1e]">
+              <CodeEditor
+                value={pythonCode}
+                onChange={() => {}}
+                language="python"
+                placeholder=""
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const bothCollapsed = pseudoCollapsed && pythonCollapsed;
 
@@ -114,8 +173,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           <div className="absolute inset-y-0 -left-1.5 -right-1.5" />
         </div>
       )}
-
-      {!showDivider && !pseudoCollapsed && !pythonCollapsed && null}
 
       {pseudoCollapsed && !pythonCollapsed && (
         <div className="w-px flex-shrink-0 bg-gray-200 dark:bg-gray-700" />

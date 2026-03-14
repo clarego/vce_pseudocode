@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   BookOpen, ChevronRight, ChevronLeft, Code, Play, Check,
-  Lightbulb, Terminal, Eye, MessageSquare, Loader2, Sparkles, X, LayoutGrid
+  Lightbulb, Terminal, Eye, MessageSquare, Loader2, Sparkles, X, LayoutGrid, Menu
 } from 'lucide-react';
 import { studyContentData } from '../data/studyContent';
 import { pseudocodeToCode } from '../utils/converters';
@@ -47,6 +47,8 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
   const autocompleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaWrapperRef = useRef<HTMLDivElement>(null);
+
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const currentChapter = studyContentData.chapters[selectedChapter];
   const chaptersLessons = studyContentData.lessons.filter(
@@ -515,62 +517,99 @@ export const StudyMode: React.FC<StudyModeProps> = ({ openAiKey }) => {
     }
   };
 
+  const sidebarContent = (
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-800">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
+          <BookOpen className="w-5 h-5" />
+          Study Guide
+        </h2>
+        <button
+          onClick={() => setShowMobileSidebar(false)}
+          className="sm:hidden p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="p-2 overflow-y-auto flex-1">
+        {studyContentData.chapters.map((chapter, idx) => (
+          <div key={chapter.id} className="mb-2">
+            <button
+              onClick={() => { handleChapterChange(idx); setShowMobileSidebar(false); }}
+              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                selectedChapter === idx
+                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-semibold'
+                  : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              <div className="text-sm font-medium">Chapter {chapter.order_num}</div>
+              <div className="text-xs mt-1">{chapter.title}</div>
+            </button>
+
+            {selectedChapter === idx && (
+              <div className="ml-4 mt-1 space-y-1">
+                {chaptersLessons.map((lesson, lessonIdx) => (
+                  <button
+                    key={lesson.id}
+                    onClick={() => { handleLessonChange(lessonIdx); setShowMobileSidebar(false); }}
+                    className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${
+                      selectedLesson === lessonIdx
+                        ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {lesson.order_num}. {lesson.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="h-full flex bg-white dark:bg-gray-900">
-      <div className="w-64 border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-gray-50 dark:bg-gray-800 flex-shrink-0">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
-            <BookOpen className="w-5 h-5" />
-            Study Guide
-          </h2>
-        </div>
+    <div className="h-full flex bg-white dark:bg-gray-900 relative">
+      {showMobileSidebar && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 sm:hidden"
+          onClick={() => setShowMobileSidebar(false)}
+        />
+      )}
 
-        <div className="p-2">
-          {studyContentData.chapters.map((chapter, idx) => (
-            <div key={chapter.id} className="mb-2">
-              <button
-                onClick={() => handleChapterChange(idx)}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                  selectedChapter === idx
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-semibold'
-                    : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <div className="text-sm font-medium">Chapter {chapter.order_num}</div>
-                <div className="text-xs mt-1">{chapter.title}</div>
-              </button>
-
-              {selectedChapter === idx && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {chaptersLessons.map((lesson, lessonIdx) => (
-                    <button
-                      key={lesson.id}
-                      onClick={() => handleLessonChange(lessonIdx)}
-                      className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${
-                        selectedLesson === lessonIdx
-                          ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
-                      }`}
-                    >
-                      {lesson.order_num}. {lesson.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      <div className={`
+        fixed sm:relative inset-y-0 left-0 z-40 sm:z-auto
+        w-72 sm:w-64 flex-shrink-0
+        border-r border-gray-200 dark:border-gray-700
+        transition-transform duration-300
+        ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}
+      `}>
+        {sidebarContent}
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div className="sm:hidden flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+          <button
+            onClick={() => setShowMobileSidebar(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white"
+          >
+            <Menu className="w-3.5 h-3.5" />
+            Chapters
+          </button>
+          <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
+            Ch.{currentChapter.order_num} — {currentLesson?.title ?? ''}
+          </span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {currentLesson && (
             <div className="max-w-3xl mx-auto">
               <div className="mb-6">
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                   Chapter {currentChapter.order_num} - Lesson {currentLesson.order_num}
                 </div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                   {currentLesson.title}
                 </h1>
               </div>
