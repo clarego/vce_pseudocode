@@ -269,6 +269,24 @@ export interface MockupScreen {
   widgets: MockupWidget[];
 }
 
+export interface TestingTableRow {
+  testNumber: number;
+  dataType: 'normal' | 'boundary' | 'invalid';
+  description: string;
+  inputData: Record<string, string>;
+  expectedOutput: string;
+  actualOutput: string;
+  pass: boolean | null;
+  isBoundary: boolean;
+  boundaryNote?: string;
+}
+
+export interface TestingTable {
+  inputs: string[];
+  rows: TestingTableRow[];
+  validationRules: string[];
+}
+
 export interface DesignTools {
   flowchart: FlowchartNode[];
   dataDictionary: DataDictionaryRow[];
@@ -285,6 +303,7 @@ export interface DesignTools {
     relationships: ErdRelationship[];
   };
   mockup: MockupScreen[];
+  testingTable: TestingTable;
 }
 
 function parseJson<T>(raw: string): T {
@@ -315,7 +334,7 @@ export const aiGenerateDesignTools = async (
 ): Promise<DesignTools> => {
   const codeBlock = `${codeType}:\n${code}`;
 
-  const [flowchartAndDd, ipoAndUcd, dfd, erdAndMockup] = await Promise.all([
+  const [flowchartAndDd, ipoAndUcd, dfd, erdAndMockup, testingTableRaw] = await Promise.all([
     callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
 Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) with this exact structure:
 {
@@ -363,6 +382,36 @@ Rules:
 - Level 2: decomposes first complex process, sub-processes "1.1 Name" etc, balances parent flows.`, codeBlock, 0.2),
 
     callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
+Analyse the given ${codeType} and generate a VCAA-style Testing Table. Return ONLY valid JSON (no markdown, no explanation) with this exact structure:
+{
+  "inputs": ["variableName1", "variableName2"],
+  "validationRules": ["rule1 plain English", "rule2 plain English"],
+  "rows": [
+    {
+      "testNumber": 1,
+      "dataType": "normal",
+      "description": "Plain English description of what is being tested",
+      "inputData": { "variableName1": "value1", "variableName2": "value2" },
+      "expectedOutput": "What the program should display or do",
+      "actualOutput": "",
+      "pass": null,
+      "isBoundary": false,
+      "boundaryNote": ""
+    }
+  ]
+}
+Rules:
+- Identify ALL input variables and ALL validation rules from the code.
+- Generate at minimum 8-12 comprehensive test cases.
+- MUST include: normal/valid data (2-3 cases), boundary values for EVERY validation condition, and invalid/erroneous data (2-3 cases).
+- For EVERY boundary condition (e.g. age >= 18): include BOTH the exact boundary value (accept, isBoundary: true) AND the value just outside it (reject, isBoundary: true).
+- boundaryNote: for boundary rows explain e.g. "Lower boundary: minimum valid age" or "Just below lower boundary: should be rejected".
+- dataType: "normal" for valid mid-range data, "boundary" for exact boundary or just-outside-boundary values, "invalid" for clearly erroneous data.
+- actualOutput: always empty string (student fills this in during testing).
+- pass: always null (student fills this in).
+- expectedOutput: be specific about what the program outputs for that input.`, codeBlock, 0.2),
+
+    callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
 Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) with this exact structure:
 {
   "erd": {
@@ -388,8 +437,9 @@ Rules:
   const { ipoChart, ucd } = parseJson<{ ipoChart: IpoChart; ucd: DesignTools['ucd'] }>(ipoAndUcd);
   const dfdParsed = parseJson<DfdLevel[]>(dfd);
   const { erd, mockup } = parseJson<{ erd: DesignTools['erd']; mockup: MockupScreen[] }>(erdAndMockup);
+  const testingTable = parseJson<TestingTable>(testingTableRaw);
 
-  return { flowchart, dataDictionary, ipoChart, ucd, dfd: dfdParsed, erd, mockup };
+  return { flowchart, dataDictionary, ipoChart, ucd, dfd: dfdParsed, erd, mockup, testingTable };
 };
 
 export const aiAutocomplete = async (

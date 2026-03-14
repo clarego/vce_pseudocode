@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor, X, Copy, FileDown, Check, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
+import { GitBranch, Table2, ArrowRightLeft, Users, Loader2, RefreshCw, Network, Database, Monitor, X, Copy, FileDown, Check, ZoomIn, ZoomOut, Maximize2, Minimize2, FlaskConical, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import type {
   DesignTools as DesignToolsData,
   FlowchartNode,
@@ -13,9 +13,11 @@ import type {
   DfdFlow,
   MockupScreen,
   MockupWidget,
+  TestingTable,
+  TestingTableRow,
 } from '../utils/aiService';
 
-type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd' | 'erdChen' | 'erdCrowsFoot' | 'mockup';
+type Tab = 'flowchart' | 'dataDictionary' | 'ipo' | 'ucd' | 'dfd' | 'erdChen' | 'erdCrowsFoot' | 'mockup' | 'testingTable';
 
 interface DesignToolsProps {
   data: DesignToolsData | null;
@@ -34,6 +36,7 @@ const TAB_CONFIG: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'erdChen', label: "ERD (Chen's)", icon: <Database className="w-4 h-4" /> },
   { id: 'erdCrowsFoot', label: "ERD (Crow's Foot)", icon: <Database className="w-4 h-4" /> },
   { id: 'mockup', label: 'GUI Mockup', icon: <Monitor className="w-4 h-4" /> },
+  { id: 'testingTable', label: 'Testing Table', icon: <FlaskConical className="w-4 h-4" /> },
 ];
 
 function getTabTextContent(tab: Tab, data: DesignToolsData): string {
@@ -243,6 +246,37 @@ function getTabTextContent(tab: Tab, data: DesignToolsData): string {
       if (r.attributes && r.attributes.length > 0) {
         lines.push(`    Attributes: ${r.attributes.map(a => a.name).join(', ')}`);
       }
+    });
+  }
+
+  if (tab === 'testingTable' && data.testingTable) {
+    const tt = data.testingTable;
+    lines.push('TESTING TABLE');
+    lines.push('='.repeat(60));
+    lines.push('');
+    if (tt.validationRules && tt.validationRules.length > 0) {
+      lines.push('Validation Rules:');
+      tt.validationRules.forEach((r, i) => lines.push(`  ${i + 1}. ${r}`));
+      lines.push('');
+    }
+    const inputCols = tt.inputs ?? [];
+    const header = ['Test', 'Type', 'Description', ...inputCols.map(i => `Input: ${i}`), 'Expected Output', 'Actual Output', 'Pass?'];
+    lines.push(header.join(' | '));
+    lines.push('-'.repeat(header.join(' | ').length));
+    (tt.rows ?? []).forEach(row => {
+      const inputs = inputCols.map(k => row.inputData?.[k] ?? '').join(' | ');
+      const boundaryMark = row.isBoundary ? ' [BOUNDARY]' : '';
+      const cols = [
+        String(row.testNumber),
+        row.dataType + boundaryMark,
+        row.description,
+        inputs,
+        row.expectedOutput,
+        row.actualOutput ?? '',
+        row.pass === null ? '' : row.pass ? 'PASS' : 'FAIL',
+      ];
+      lines.push(cols.join(' | '));
+      if (row.isBoundary && row.boundaryNote) lines.push(`  -> ${row.boundaryNote}`);
     });
   }
 
@@ -481,6 +515,7 @@ export const DesignTools: React.FC<DesignToolsProps> = ({ data, isLoading, error
           {activeTab === 'erdChen' && <ErdChenView erd={data.erd} />}
           {activeTab === 'erdCrowsFoot' && <ErdCrowsFootView erd={data.erd} />}
           {activeTab === 'mockup' && <MockupView screens={data.mockup} />}
+          {activeTab === 'testingTable' && <TestingTableView testingTable={data.testingTable} />}
         </>
       )}
     </div>
@@ -2411,6 +2446,186 @@ function MockupView({ screens }: { screens: MockupScreen[] }) {
 
       <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-xs text-amber-700 dark:text-amber-300">
         <strong>Annotated Mockup:</strong> This is a wireframe-style GUI prototype. Amber dots with dashed lines are annotations explaining each control's role in the program.
+      </div>
+    </div>
+  );
+}
+
+function BoundaryExplainer({ validationRules }: { validationRules: string[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2 font-semibold text-blue-800 dark:text-blue-200 text-sm">
+          <Info className="w-4 h-4 shrink-0" />
+          Understanding Boundary Conditions — VCAA Testing Requirements
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-blue-600 dark:text-blue-400" /> : <ChevronDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3 text-sm text-blue-900 dark:text-blue-100">
+          <p>
+            A <strong>Testing Table</strong> is a core VCAA requirement for documenting that your solution has been
+            thoroughly tested. It must include three categories of test data:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-lg bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 p-3">
+              <div className="font-semibold text-green-800 dark:text-green-300 mb-1">Normal Data</div>
+              <p className="text-xs text-green-700 dark:text-green-300">Valid data clearly within the acceptable range. The program should accept and process it correctly.</p>
+              <div className="mt-2 text-xs font-mono text-green-600 dark:text-green-400">e.g. age = 25 (valid range 18–65)</div>
+            </div>
+            <div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-3">
+              <div className="font-semibold text-amber-800 dark:text-amber-300 mb-1 flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                Boundary Data
+              </div>
+              <p className="text-xs text-amber-700 dark:text-amber-300">Values at the exact limits of the valid range, and the values just outside those limits. Tests whether your boundary logic is correct.</p>
+              <div className="mt-2 text-xs font-mono text-amber-600 dark:text-amber-400">e.g. age = 18 (accept) and age = 17 (reject)</div>
+            </div>
+            <div className="rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 p-3">
+              <div className="font-semibold text-red-800 dark:text-red-300 mb-1">Invalid / Erroneous</div>
+              <p className="text-xs text-red-700 dark:text-red-300">Data clearly outside the valid range or of the wrong type. The program should reject it with an appropriate error message.</p>
+              <div className="mt-2 text-xs font-mono text-red-600 dark:text-red-400">e.g. age = -5 or age = 200</div>
+            </div>
+          </div>
+          <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 rounded-lg px-3 py-2">
+            <strong>Boundary rows are highlighted in amber below.</strong> For each validation rule, VCAA expects you to test
+            both the exact boundary value (the last valid value) AND the value just outside it (the first invalid value).
+            Rows marked <span className="font-mono font-bold">BOUNDARY</span> identify these critical test cases.
+          </p>
+          {validationRules.length > 0 && (
+            <div>
+              <div className="font-semibold text-blue-800 dark:text-blue-200 mb-1.5 text-xs uppercase tracking-wide">Validation rules detected in your pseudocode:</div>
+              <ul className="space-y-1">
+                {validationRules.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs">
+                    <span className="mt-0.5 w-5 h-5 rounded-full bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold shrink-0 text-[10px]">{i + 1}</span>
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-xs text-blue-600 dark:text-blue-400">
+            Fill in the <strong>Actual Output</strong> and <strong>Pass/Fail</strong> columns when you run your program during testing.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TestingTableView({ testingTable }: { testingTable: TestingTable | undefined }) {
+  if (!testingTable || !testingTable.rows || testingTable.rows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+        <FlaskConical className="w-10 h-10 mb-3 opacity-30" />
+        <p className="text-sm">No testing table data available.</p>
+      </div>
+    );
+  }
+
+  const inputs = testingTable.inputs ?? [];
+
+  const typeStyles: Record<string, string> = {
+    normal: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700',
+    boundary: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700',
+    invalid: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700',
+  };
+
+  const rowBg = (row: TestingTableRow) => {
+    if (row.isBoundary) return 'bg-amber-50 dark:bg-amber-950/30';
+    if (row.dataType === 'invalid') return 'bg-red-50/50 dark:bg-red-950/20';
+    return '';
+  };
+
+  return (
+    <div>
+      <BoundaryExplainer validationRules={testingTable.validationRules ?? []} />
+
+      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-gray-100 dark:bg-gray-800">
+              <th className="px-3 py-2.5 text-left font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide border-b border-gray-200 dark:border-gray-700 w-10">Test</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide border-b border-gray-200 dark:border-gray-700">Type</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide border-b border-gray-200 dark:border-gray-700">Description</th>
+              {inputs.map(inp => (
+                <th key={inp} className="px-3 py-2.5 text-left font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">
+                  {inp}
+                </th>
+              ))}
+              <th className="px-3 py-2.5 text-left font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide border-b border-gray-200 dark:border-gray-700">Expected Output</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide border-b border-gray-200 dark:border-gray-700">
+                <span className="flex items-center gap-1">Actual Output <span className="text-[9px] font-normal text-gray-400 normal-case">(you fill in)</span></span>
+              </th>
+              <th className="px-3 py-2.5 text-left font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide border-b border-gray-200 dark:border-gray-700">
+                <span className="flex items-center gap-1">Pass? <span className="text-[9px] font-normal text-gray-400 normal-case">(you fill in)</span></span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {testingTable.rows.map((row, i) => (
+              <tr
+                key={i}
+                className={`border-b border-gray-100 dark:border-gray-800 last:border-0 ${rowBg(row)}`}
+              >
+                <td className="px-3 py-2.5 text-center font-mono text-xs font-semibold text-gray-600 dark:text-gray-400">{row.testNumber}</td>
+                <td className="px-3 py-2.5">
+                  <div className="flex flex-col gap-1">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold w-fit ${typeStyles[row.dataType] ?? typeStyles.normal}`}>
+                      {row.dataType.charAt(0).toUpperCase() + row.dataType.slice(1)}
+                    </span>
+                    {row.isBoundary && (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 border border-amber-400 dark:border-amber-600 w-fit">
+                        BOUNDARY
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-3 py-2.5">
+                  <div className="text-gray-800 dark:text-gray-200 text-xs">{row.description}</div>
+                  {row.isBoundary && row.boundaryNote && (
+                    <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 italic">{row.boundaryNote}</div>
+                  )}
+                </td>
+                {inputs.map(key => (
+                  <td key={key} className="px-3 py-2.5 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    {row.inputData?.[key] ?? '—'}
+                  </td>
+                ))}
+                <td className="px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300">{row.expectedOutput}</td>
+                <td className="px-3 py-2.5">
+                  <div className="w-28 h-6 rounded border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50"></div>
+                </td>
+                <td className="px-3 py-2.5">
+                  <div className="w-16 h-6 rounded border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/50"></div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-800 border border-green-400 dark:border-green-600"></span>
+          Normal data
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-amber-200 dark:bg-amber-800 border border-amber-400 dark:border-amber-600"></span>
+          Boundary data
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-800 border border-red-400 dark:border-red-600"></span>
+          Invalid / erroneous data
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto italic">
+          Dashed boxes = fill in when testing your program
+        </div>
       </div>
     </div>
   );
