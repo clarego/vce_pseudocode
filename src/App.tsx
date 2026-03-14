@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { Code2, BookOpen, CreditCard as Edit, Settings, Loader2, Sun, Moon, Terminal, AlignJustify, X } from 'lucide-react';
-import { PseudocodeEditor } from './components/PseudocodeEditor';
+import { EditorPane } from './components/EditorPane';
 import { ReservedWordPanel } from './components/ReservedWordPanel';
 import { ConversionPanel } from './components/ConversionPanel';
 import { DesignTools } from './components/DesignTools';
@@ -546,8 +546,8 @@ function App() {
                         </button>
                       )}
                     </div>
-                    <div className="flex-1 p-2 overflow-hidden">
-                      <PseudocodeEditor
+                    <div className="flex-1 overflow-hidden">
+                      <EditorPane
                         value={pseudocode}
                         onChange={setPseudocode}
                         onCursorPositionChange={setCursorPosition}
