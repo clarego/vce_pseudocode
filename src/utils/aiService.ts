@@ -334,7 +334,7 @@ export const aiGenerateDesignTools = async (
 ): Promise<DesignTools> => {
   const codeBlock = `${codeType}:\n${code}`;
 
-  const [flowchartAndDd, ipoAndUcd, dfd, erdAndMockup, testingTableRaw] = await Promise.all([
+  const [flowchartAndDd, ipoAndUcd, dfd, testingTableRaw, erdAndMockup] = await Promise.all([
     callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
 Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) with this exact structure:
 {
@@ -405,11 +405,13 @@ Rules:
 - Generate at minimum 8-12 comprehensive test cases.
 - MUST include: normal/valid data (2-3 cases), boundary values for EVERY validation condition, and invalid/erroneous data (2-3 cases).
 - For EVERY boundary condition (e.g. age >= 18): include BOTH the exact boundary value (accept, isBoundary: true) AND the value just outside it (reject, isBoundary: true).
+- Boundary values are the values at the exact edge of a valid/invalid range — test both the boundary itself AND one step either side.
 - boundaryNote: for boundary rows explain e.g. "Lower boundary: minimum valid age" or "Just below lower boundary: should be rejected".
-- dataType: "normal" for valid mid-range data, "boundary" for exact boundary or just-outside-boundary values, "invalid" for clearly erroneous data.
+- dataType: "normal" for valid mid-range data, "boundary" for exact boundary or just-outside-boundary values, "invalid" for clearly erroneous data (e.g. negative numbers, non-numeric text, empty input).
 - actualOutput: always empty string (student fills this in during testing).
 - pass: always null (student fills this in).
-- expectedOutput: be specific about what the program outputs for that input.`, codeBlock, 0.2),
+- expectedOutput: be specific about what the program outputs for that input.
+- For the age-check example (age >= 18): boundary tests must include age=17 (rejected, just below), age=18 (accepted, exact boundary), age=19 (accepted, just above). Normal tests include typical adult (e.g. 25, 40) and typical minor (e.g. 10, 15). Invalid tests include negative age (e.g. -1), zero (0), very large number (e.g. 999), non-numeric text if applicable.`, codeBlock, 0.2),
 
     callClaude(apiKey, `You are a VCE Software Development teacher in Victoria, Australia.
 Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explanation) with this exact structure:
@@ -429,8 +431,8 @@ Analyse the given ${codeType} and return ONLY valid JSON (no markdown, no explan
   ]
 }
 Rules:
-- ERD: all entities (nouns), relationships (verbs), all attributes, cardinality "one"/"many", participation "partial"/"total", mark isPrimary/isForeign/isMultiValued/isDerived.
-- Mockup: 1–3 screens. INPUT numeric→textbox, choice→dropdown/radio, long text→textarea, yes/no→checkbox. OUTPUT list→listbox/table, single value→label. All x/y/width/height integers, no overlapping widgets, fit within screen bounds. Widget label is visible text.`, codeBlock, 0.2),
+- ERD: Even for simple programs without a database, model the program's data domain as entities. Identify all nouns/data items as entities with their attributes. For example an age-check program has a "Person" entity with an "age" attribute and a "Category" entity (Adult/Minor) linked to Person. ALWAYS produce at least one entity with at least one attribute. Mark isPrimary for identifiers, use cardinality "one"/"many", participation "partial"/"total". isWeak/isForeign/isMultiValued/isDerived as appropriate.
+- Mockup: Design a realistic desktop GUI application window for this program. ALWAYS include at minimum: a menubar at top, a title label, input fields for every INPUT statement (numeric INPUT → textbox with label), a submit/check button, a result label for every OUTPUT, and a statusbar at bottom. 1–3 screens. All x/y/width/height must be integers, widgets must not overlap, all widgets must fit within screen width and height. Widget label is the visible text shown on screen.`, codeBlock, 0.2),
   ]);
 
   const { flowchart, dataDictionary } = parseJson<{ flowchart: FlowchartNode[]; dataDictionary: DataDictionaryRow[] }>(flowchartAndDd);
